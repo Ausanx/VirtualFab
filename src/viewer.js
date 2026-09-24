@@ -7,7 +7,7 @@ export const escapeHtml = x => String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;'
 const number = x => Math.abs(x)<1e-7?'0':Number(x.toFixed(2)).toString();
 export class StructureViewer {
   constructor(container) {
-    this.container=container;this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#11171d');
+    this.container=container;this.scene=new THREE.Scene();this.scene.background=new THREE.Color(getComputedStyle(container).getPropertyValue('--inset').trim());
     this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     container.replaceChildren(this.renderer.domElement);
@@ -57,12 +57,12 @@ export class StructureViewer {
           if(r.layer.exposed!==undefined)mesh.setColorAt(i,new THREE.Color(r.layer.exposed?'#d5a69c':material.color));
         });mesh.instanceMatrix.needsUpdate=true;this.group.add(mesh);
       }
-      const grid=new THREE.GridHelper(state.sizeUm*1.5,12,'#3b4c59','#26333f');grid.position.y=minZ*sz-.3;this.group.add(grid);
+      const grid=new THREE.GridHelper(state.sizeUm*1.5,12,'#9bafbf','#d2dee7');grid.position.y=minZ*sz-.3;this.group.add(grid);
       const height=(maxZ-minZ)*sz+2;
       this.slice=new THREE.Mesh(new THREE.PlaneGeometry(state.sizeUm,height),new THREE.MeshBasicMaterial({color:'#55bfc4',transparent:true,opacity:.12,side:THREE.DoubleSide,depthWrite:false}));
       this.slice.position.set(0,(maxZ+minZ)/2*sz,(sliceIndex+.5)*dx-state.sizeUm/2);this.group.add(this.slice);
       const lineGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-state.sizeUm/2,maxZ*sz+.6,this.slice.position.z),new THREE.Vector3(state.sizeUm/2,maxZ*sz+.6,this.slice.position.z)]);
-      this.group.add(new THREE.Line(lineGeo,new THREE.LineBasicMaterial({color:'#55bfc4'})));
+      this.group.add(new THREE.Line(lineGeo,new THREE.LineBasicMaterial({color:'#0b747b'})));
     }
     this.render();
     return {gain:this.gain,minZ,maxZ};
@@ -118,5 +118,5 @@ export function drawCurve(container,rows) {
   const d=rows.map((r,i)=>`${i?'L':'M'}${px(r.voltageV).toFixed(2)} ${py(r.currentA).toFixed(2)}`).join(' ');
   const xt=Array.from({length:5},(_,i)=>({pos:x+i*w/4,label:number(rows[0].voltageV+(rows.at(-1).voltageV-rows[0].voltageV)*i/4)}));
   const yt=Array.from({length:5},(_,i)=>({pos:y+h-i*h/4,label:(min+span*i/4).toExponential(1)}));
-  container.innerHTML=`<svg viewBox="0 0 735 225" role="img" aria-label="手动参数 Shockley 二极管曲线">${axes(x,y,w,h,xt,yt,'V (V)','I (A)')}<path d="${d}" stroke="#55BFC4" stroke-width="2" fill="none"/><text class="plot-text" x="${x+w}" y="16" text-anchor="end">条件模型 · 非器件标定预测</text></svg>`;
+  container.innerHTML=`<svg viewBox="0 0 735 225" role="img" aria-label="手动参数 Shockley 二极管曲线">${axes(x,y,w,h,xt,yt,'V (V)','I (A)')}<path d="${d}" stroke="#2F7FAE" stroke-width="2" fill="none"/><text class="plot-text" x="${x+w}" y="16" text-anchor="end">条件模型 · 非器件标定预测</text></svg>`;
 }
