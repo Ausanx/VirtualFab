@@ -168,3 +168,5 @@ $('#curve-form').onsubmit=e=>{e.preventDefault();updateCurve();};$('#export-curv
 try{viewer=new StructureViewer($('#three-view'));}catch(error){$('#three-view').innerHTML='<p class="empty-message">WebGL 不可用。剖面、工艺计算与诊断仍可使用。</p>';toast('三维视窗初始化失败：'+error.message);}
 new ResizeObserver(revealCurrentStep).observe($('#recipe-cards'));
 renderLibrary();render();updateCurve();if(restoreError)toast(restoreError);
+new ResizeObserver(()=>drawSlice($('#slice-plot'),state,project.materials,sliceIndex)).observe($('#slice-plot'));
+new ResizeObserver(()=>{if(curveRows.length)drawCurve($('#curve-plot'),curveRows);}).observe($('#curve-plot'));

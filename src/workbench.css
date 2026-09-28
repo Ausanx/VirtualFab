@@ -249,3 +249,62 @@ dialog { border-radius: 4px; box-shadow: 0 15px 50px #172b3d38; }
   .timeline-footer>span:first-child { display: none; }
   .inspector { order: 3; max-height: none; }
 }
+
+/* Final type scale for the docked desktop layout. */
+:root { font-family: "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif; font-size: 13px; }
+*, *::before, *::after { letter-spacing: 0 !important; }
+button, input, select, textarea { font-size: 13px; }
+small { font-size: 12px; }
+h1 { font-size: 16px; font-weight: 600; }
+h2 { font-size: 15px; font-weight: 600; }
+h3 { font-size: 14px; font-weight: 600; }
+p { line-height: 1.5; }
+.brand strong { font-size: 15px; }
+.project-name input { font-size: 13px; }
+#save-status { font-size: 12px; }
+.panel-heading { font-size: 13px; }
+.panel-heading small, .workspace-heading small, .dialog-heading small { display: none; }
+.template-field label, .full-button, .process-group h3 { font-size: 12px; }
+.process-item { font-size: 13px; }
+.process-item .process-glyph { width: 34px; font-size: 11px; }
+.workspace-heading h1 { font-size: 16px; }
+.view-tabs button, .inspector-tabs button { font-size: 13px; }
+.inspector-tabs button span { font-size: 12px; }
+#model-label, .viewport-meta, .layer-legend, .slice-heading, .slice-heading strong { font-size: 12px; }
+.viewport-toolbar>span, .viewport-toolbar button { font-size: 12px; }
+.step-tag, .step-description, .param-form label, .card-actions button, .result-summary { font-size: 12px; }
+.param-form label input, .param-form label select { font-size: 13px; }
+.param-footnote, .diagnostic button, .structure-result summary { font-size: 12px; }
+.diagnostic p, .structure-result p, .structure-result li, .empty-message { font-size: 12px; }
+.structure-result h3 { font-size: 14px; }
+.structure-result .materials { font-size: 12px; }
+.timeline-heading strong { font-size: 13px; }
+.timeline-heading span, .timeline-footer, .recipe-top, .recipe-card small { font-size: 12px; }
+.recipe-card strong { font-size: 13px; }
+.recipe-card { height: 82px; }
+#recipe-cards { height: 100px; }
+.analysis-title>span, .view-note, .interface-row, .curve-form label, .curve-form button { font-size: 12px; }
+.plot-text, .plot-label { font-family: "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif; font-size: 12px; }
+.material-row, .material-info label, .property-row>label, .material-notes, .material-source, .error-message { font-size: 12px; }
+.material-row small, .property-note input, .property-note .input-note { font-size: 12px; }
+.material-button small { font-size: 12px; }
+.badge, .diagnostic-heading span { font-size: 12px; }
+.library, .inspector, #material-list, #material-detail { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+#band-diagram { overflow-x: auto; overflow-y: hidden; }
+#slice-plot { padding: 0 8px; }
+#curve-plot svg { display: block; }
+#band-diagram svg { display: block; }
+@media (max-width: 560px) {
+  .brand strong { font-size: 15px; }
+  .workspace-heading h1 { font-size: 16px; }
+  .view-tabs button { font-size: 12px; }
+  .header-actions button, .workspace-heading button { font-size: 12px; }
+  .viewport-meta, .layer-legend { font-size: 12px; }
+  .timeline { height: 154px; }
+}
+@media (max-height: 780px) and (min-width: 851px) {
+  #recipe-cards { height: 77px; }
+  .recipe-card { height: 68px; padding-top: 5px; padding-bottom: 4px; }
+  .recipe-top { margin-bottom: 2px; }
+  .recipe-card strong { margin-bottom: 2px; }
+}

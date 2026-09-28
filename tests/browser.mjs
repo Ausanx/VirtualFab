@@ -145,9 +145,21 @@ try {
   await page.locator('[data-view="structure"]').click();
   await page.setViewportSize({width:390,height:844});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'mobile content should not overflow horizontally');
+  assert.ok(await page.evaluate(()=>{
+    const plot=document.querySelector('#slice-plot'),svg=plot.querySelector('svg'),label=svg.querySelector('.plot-text');
+    return svg.getBoundingClientRect().width<=plot.clientWidth&&
+      Number.parseFloat(getComputedStyle(label).fontSize)*svg.getScreenCTM().a>=11.5;
+  }),'mobile slice must fit the panel and keep labels at readable size');
   await page.waitForFunction(()=>{const current=document.querySelector('.recipe-card.current').getBoundingClientRect(),strip=document.querySelector('#recipe-cards').getBoundingClientRect();return current.left>=strip.left-1&&current.right<=strip.right+1;});
   await page.waitForFunction(()=>getComputedStyle(document.querySelector('#toast')).opacity==='0');
   await page.screenshot({path:'artifacts/mobile.png',fullPage:true});
+  await page.locator('[data-view="bands"]').click();
+  assert.ok(await page.evaluate(()=>{const plot=document.querySelector('#band-diagram');return plot.scrollWidth>plot.clientWidth;}),'mobile band diagram should scroll within its panel');
+  await page.screenshot({path:'artifacts/mobile-bands.png'});
+  await page.locator('[data-view="electrical"]').click();
+  await page.waitForFunction(()=>{const plot=document.querySelector('#curve-plot');return plot.querySelector('svg')?.getBoundingClientRect().width<=plot.clientWidth;});
+  assert.ok(await page.evaluate(()=>{const plot=document.querySelector('#curve-plot'),svg=plot.querySelector('svg'),label=svg.querySelector('.plot-text');return Number.parseFloat(getComputedStyle(label).fontSize)*svg.getScreenCTM().a>=11.5;}),'mobile I-V labels should remain readable');
+  await page.screenshot({path:'artifacts/mobile-electrical.png'});
   assert.deepEqual(external,[],'the app must not transmit project data or request remote assets');
   assert.deepEqual(errors,[],'no browser errors');
   console.log('Browser checks passed: WebGL, process editing/replay, templates, materials, local persistence, JSON/CSV, mobile layout.');

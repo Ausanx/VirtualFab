@@ -88,7 +88,7 @@ function axes(x,y,w,h,xTicks,yTicks,xLabel,yLabel) {
   return svg+`<text class="plot-text" x="${x+w}" y="${y+h+32}" text-anchor="end">${xLabel}</text><text class="plot-text" x="${x}" y="${y-8}">${yLabel}</text>`;
 }
 export function drawSlice(container,state,materials,index) {
-  const W=740,H=174,x=63,y=24,w=657,h=112,n=state.resolution;
+  const W=container.clientWidth?Math.max(320,container.clientWidth-16):740,H=container.clientHeight||174,x=63,y=24,w=W-83,h=H-62,n=state.resolution;
   const cells=state.cells.slice(index*n,(index+1)*n),max=Math.max(1,...cells.map(c=>c.at(-1)?.z1||0));
   const min=-(state.substrate?.oxideNm||0)-Math.max(30,max*.03),top=max*1.07;
   const py=z=>y+h-(z-min)/(top-min)*h;
@@ -114,13 +114,13 @@ export function drawBands(container,state,materials) {
     } else content+=`<rect x="${cx-bw/2}" y="${y+45}" width="${bw}" height="85" fill="none" stroke="#718291" stroke-dasharray="3 5"/><text class="plot-text" x="${cx}" y="${y+88}" text-anchor="middle">带边缺失</text>`;
   });
   const yt=[0,-2,-4,-6,-8,-10].map(e=>({pos:py(e),label:e}));
-  container.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="材料真空参考能带"><title>材料带边对齐近似，非接触后的自洽能带</title>${content}${axes(x,y,w,h,xt,yt,'','E (eV)')}</svg>`;
+  container.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="min-width:${W}px" role="img" aria-label="材料真空参考能带"><title>材料带边对齐近似，非接触后的自洽能带</title>${content}${axes(x,y,w,h,xt,yt,'','E (eV)')}</svg>`;
 }
 export function drawCurve(container,rows) {
-  const x=70,y=25,w=640,h=150,min=Math.min(...rows.map(r=>r.currentA)),max=Math.max(...rows.map(r=>r.currentA)),span=max-min||1;
+  const W=Math.max(360,container.clientWidth||735),x=70,y=25,w=W-95,h=150,min=Math.min(...rows.map(r=>r.currentA)),max=Math.max(...rows.map(r=>r.currentA)),span=max-min||1;
   const px=v=>x+(v-rows[0].voltageV)/(rows.at(-1).voltageV-rows[0].voltageV)*w,py=i=>y+h-(i-min)/span*h;
   const d=rows.map((r,i)=>`${i?'L':'M'}${px(r.voltageV).toFixed(2)} ${py(r.currentA).toFixed(2)}`).join(' ');
   const xt=Array.from({length:5},(_,i)=>({pos:x+i*w/4,label:number(rows[0].voltageV+(rows.at(-1).voltageV-rows[0].voltageV)*i/4)}));
   const yt=Array.from({length:5},(_,i)=>({pos:y+h-i*h/4,label:(min+span*i/4).toExponential(1)}));
-  container.innerHTML=`<svg viewBox="0 0 735 225" role="img" aria-label="手动参数 Shockley 二极管曲线">${axes(x,y,w,h,xt,yt,'V (V)','I (A)')}<path d="${d}" stroke="#2F7FAE" stroke-width="2" fill="none"/><text class="plot-text" x="${x+w}" y="16" text-anchor="end">条件模型 · 非器件标定预测</text></svg>`;
+  container.innerHTML=`<svg viewBox="0 0 ${W} 225" role="img" aria-label="手动参数 Shockley 二极管曲线">${axes(x,y,w,h,xt,yt,'V (V)','I (A)')}<path d="${d}" stroke="#2F7FAE" stroke-width="2" fill="none"/><text class="plot-text" x="${x+w}" y="16" text-anchor="end">条件模型 · 非器件标定预测</text></svg>`;
 }

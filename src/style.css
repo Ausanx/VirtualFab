@@ -17,29 +17,3 @@ dialog{color:var(--text);background:var(--panel);border:1px solid var(--line-str
 #materials-dialog .material-dialog-body{flex:1;min-height:0;max-height:none}
 #materials-dialog .material-dialog-body>div{min-height:0}
 @media(max-width:560px){#materials-dialog .material-dialog-body{display:block;overflow:auto}}
-
-/* Desktop workbench type scale: compact labels, readable controls, restrained titles. */
-:root{font-family:"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Arial,sans-serif;font-size:13px}
-*,*::before,*::after{letter-spacing:0!important}
-button,input,select,textarea{font-size:13px}
-small{font-size:11px}h1{font-size:19px;font-weight:600}h2{font-size:16px;font-weight:600}h3{font-size:13px;font-weight:600}p{line-height:1.5}
-.brand strong{font-size:16px}.brand strong span{font-size:10px}.project-name input{font-size:13px}#save-status{font-size:11px}
-.panel-heading{font-size:13px}.panel-heading small,.workspace-heading small,.dialog-heading small{display:none}
-.template-field label,.full-button,.process-group h3,.library-note{font-size:12px}
-.process-item{font-size:13px}.process-item .process-glyph{font-size:10px}
-.workspace-heading h1{font-size:19px}.view-tabs button,.inspector-tabs button{font-size:13px}
-#model-label,.viewport-meta,.layer-legend,.slice-heading,.slice-heading strong{font-size:11px}
-.viewport-toolbar>span,.viewport-toolbar button{font-size:12px}
-.step-tag,.step-description,.param-form label,.card-actions button,.result-summary{font-size:12px}
-.param-form label input,.param-form label select{font-size:13px}
-.param-footnote,.diagnostic button,.structure-result summary{font-size:11px}
-.diagnostic p,.structure-result p,.structure-result li,.empty-message{font-size:12px}
-.structure-result h3{font-size:13px}.structure-result .materials{font-size:11px}
-.timeline-heading strong{font-size:13px}.timeline-heading span,.timeline-footer,.recipe-top,.recipe-card small{font-size:11px}
-.recipe-card strong{font-size:12px}.recipe-card{height:78px}#recipe-cards{height:96px}
-.analysis-title>span,.view-note,.interface-row,.curve-form label,.curve-form button{font-size:12px}
-.plot-text,.plot-label{font-size:11px}
-.material-row,.material-info label,.property-row>label,.material-notes,.material-source,.error-message{font-size:12px}
-.material-row small,.property-note input{font-size:11px}
-@media(max-width:560px){.brand strong{font-size:15px}.workspace-heading h1{font-size:18px}.timeline{height:180px}.viewport-meta{font-size:11px}}
-.library,.inspector,#material-list,#material-detail{scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
