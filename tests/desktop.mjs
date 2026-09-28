@@ -22,7 +22,7 @@ let first=await open();
 try {
   const {page}=first;
   const type=await page.locator('#workspace-title').evaluate(element=>({size:getComputedStyle(element).fontSize,spacing:getComputedStyle(element).letterSpacing}));
-  assert.ok(parseFloat(type.size)>=18&&parseFloat(type.size)<=20);
+  assert.ok(parseFloat(type.size)>=14&&parseFloat(type.size)<=16);
   assert.ok(['normal','0px'].includes(type.spacing));
   await page.locator('#template').selectOption('backgate');
   await page.locator('#load-template').click();

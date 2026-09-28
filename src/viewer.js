@@ -11,7 +11,7 @@ export class StructureViewer {
     this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     container.replaceChildren(this.renderer.domElement);
-    this.camera=new THREE.PerspectiveCamera(38,1,.1,2000);this.camera.position.set(50,42,55);
+    this.camera=new THREE.PerspectiveCamera(38,1,.1,2000);this.camera.position.set(62,52,68);
     this.controls=new OrbitControls(this.camera,this.renderer.domElement);this.controls.enableDamping=false;this.controls.target.set(0,1,0);this.controls.addEventListener('change',()=>this.render());
     this.scene.add(new THREE.AmbientLight('#d2e2ec',2));
     const light=new THREE.DirectionalLight('#ffffff',3);light.position.set(-30,80,30);this.scene.add(light);
@@ -64,15 +64,17 @@ export class StructureViewer {
       const lineGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-state.sizeUm/2,maxZ*sz+.6,this.slice.position.z),new THREE.Vector3(state.sizeUm/2,maxZ*sz+.6,this.slice.position.z)]);
       this.group.add(new THREE.Line(lineGeo,new THREE.LineBasicMaterial({color:'#0b747b'})));
     }
+    this.frameY=(maxZ+minZ)*sz*.35;
+    if(!this.framed){this.camera.position.y+=this.frameY-1;this.controls.target.y=this.frameY;this.framed=true;}
     this.render();
     return {gain:this.gain,minZ,maxZ};
   }
   setView(type) {
-    const size=this.wafer?40:(this.state?.sizeUm||40),d=size*1.4;
-    if(type==='top')this.camera.position.set(0,d*1.25,.01);
-    else if(type==='front')this.camera.position.set(0,d*.1,d*1.35);
-    else this.camera.position.set(d*.9,d*.8,d);
-    this.controls.target.set(0,0,0);this.controls.update();this.render();
+    const size=this.wafer?40:(this.state?.sizeUm||40),d=size*1.75,targetY=this.wafer?0:(this.frameY||0);
+    if(type==='top')this.camera.position.set(0,targetY+d*1.25,.01);
+    else if(type==='front')this.camera.position.set(0,targetY+d*.1,d*1.35);
+    else this.camera.position.set(d*.9,targetY+d*.8,d);
+    this.controls.target.set(0,targetY,0);this.controls.update();this.render();
   }
 }
 

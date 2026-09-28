@@ -24,6 +24,14 @@ try {
   };
   await page.goto(url);
   await page.locator('#three-view canvas').waitFor();
+  await page.setViewportSize({width:1440,height:920});
+  assert.ok((await page.locator('#three-view').boundingBox()).height>=300,'desktop 3D workspace must remain usable');
+  await page.screenshot({path:'artifacts/desktop-layout.png'});
+  await page.setViewportSize({width:1100,height:720});
+  assert.ok((await page.locator('#three-view').boundingBox()).height>=220,'short desktop windows must retain a usable 3D workspace');
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'short desktop content should not overflow horizontally');
+  await page.screenshot({path:'artifacts/desktop-narrow.png'});
+  await page.setViewportSize({width:1440,height:1000});
   assert.equal(await page.locator('.recipe-card').count(),22);
   await page.locator('[data-panel="results"]').click();
   assert.match(await page.locator('#results-panel').innerText(),/MIM/);
@@ -132,6 +140,7 @@ try {
   await page.locator('[data-view="structure"]').click();
   await page.setViewportSize({width:390,height:844});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'mobile content should not overflow horizontally');
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#toast')).opacity==='0');
   await page.screenshot({path:'artifacts/mobile.png',fullPage:true});
   assert.deepEqual(external,[],'the app must not transmit project data or request remote assets');
   assert.deepEqual(errors,[],'no browser errors');

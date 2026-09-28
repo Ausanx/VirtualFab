@@ -17,7 +17,7 @@ else {
         return asset?new Response(asset.data,{headers:asset.headers}):new Response('Not found',{status:404});
       } catch {return new Response('Not found',{status:404});}
     });
-    window=new BrowserWindow({title:'VirtualFab Studio',width:1440,height:920,minWidth:1080,minHeight:720,backgroundColor:'#f1f5f8',webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});
+    window=new BrowserWindow({title:'VirtualFab Studio',width:1440,height:920,minWidth:1080,minHeight:720,backgroundColor:'#e8ebef',webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});
     window.webContents.setWindowOpenHandler(({url})=>{
       if(/^https?:\/\//i.test(url))shell.openExternal(url);
       return {action:'deny'};
