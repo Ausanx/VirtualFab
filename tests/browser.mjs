@@ -30,12 +30,17 @@ try {
   await page.setViewportSize({width:1100,height:720});
   assert.ok((await page.locator('#three-view').boundingBox()).height>=220,'short desktop windows must retain a usable 3D workspace');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'short desktop content should not overflow horizontally');
+  await page.waitForFunction(()=>{const current=document.querySelector('.recipe-card.current').getBoundingClientRect(),strip=document.querySelector('#recipe-cards').getBoundingClientRect();return current.left>=strip.left-1&&current.right<=strip.right+1;});
   await page.screenshot({path:'artifacts/desktop-narrow.png'});
   await page.setViewportSize({width:1440,height:1000});
   assert.equal(await page.locator('.recipe-card').count(),25);
   await page.locator('[data-panel="results"]').click();
   assert.match(await page.locator('#results-panel').innerText(),/MIM/);
   await page.screenshot({path:'artifacts/desktop-crossbar.png',fullPage:true});
+  await page.locator('#view-top').click();
+  await page.locator('#three-view canvas').screenshot({path:'artifacts/view-top.png'});
+  await page.locator('#view-perspective').click();
+  await page.locator('#three-view canvas').screenshot({path:'artifacts/view-perspective.png'});
 
   // NR9 process playback and actual parameter persistence.
   await page.locator('[data-panel="params"]').click();
@@ -140,6 +145,7 @@ try {
   await page.locator('[data-view="structure"]').click();
   await page.setViewportSize({width:390,height:844});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'mobile content should not overflow horizontally');
+  await page.waitForFunction(()=>{const current=document.querySelector('.recipe-card.current').getBoundingClientRect(),strip=document.querySelector('#recipe-cards').getBoundingClientRect();return current.left>=strip.left-1&&current.right<=strip.right+1;});
   await page.waitForFunction(()=>getComputedStyle(document.querySelector('#toast')).opacity==='0');
   await page.screenshot({path:'artifacts/mobile.png',fullPage:true});
   assert.deepEqual(external,[],'the app must not transmit project data or request remote assets');

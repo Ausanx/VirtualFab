@@ -11,7 +11,7 @@ export class StructureViewer {
     this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     container.replaceChildren(this.renderer.domElement);
-    this.camera=new THREE.PerspectiveCamera(38,1,.1,2000);this.camera.position.set(62,52,68);
+    this.camera=new THREE.PerspectiveCamera(38,1,.1,2000);this.camera.position.set(57,49,64);
     this.controls=new OrbitControls(this.camera,this.renderer.domElement);this.controls.enableDamping=false;this.controls.target.set(0,1,0);this.controls.addEventListener('change',()=>this.render());
     this.scene.add(new THREE.AmbientLight('#d2e2ec',2));
     const light=new THREE.DirectionalLight('#ffffff',3);light.position.set(-30,80,30);this.scene.add(light);
@@ -26,11 +26,13 @@ export class StructureViewer {
     this.state=state;this.materials=materials;this.sliceIndex=sliceIndex;this.clear();
     const maxZ=Math.max(1,...state.cells.map(c=>c.at(-1)?.z1||0));
     this.gain=Math.min(80,8000/maxZ);const sz=this.gain/1000;
-    const minZ=-(state.substrate?.oxideNm||0)-Math.max(60,maxZ*.05);
+    const oxide=state.substrate?.oxideNm||0,oxideDisplay=oxide?1.5:0,supportDisplay=2.5;
+    const minZ=-oxide-1;
+    const displayZ=z=>z>=0?z*sz:z>=-oxide?z/oxide*oxideDisplay:-oxideDisplay-supportDisplay;
     this.minZ=minZ;
     const dx=state.sizeUm/state.resolution;
     if(this.wafer&&state.substrate) {
-      const wafer=new THREE.Mesh(new THREE.CylinderGeometry(20,20,.8,96),new THREE.MeshStandardMaterial({color:state.substrate.oxideNm?'#2f7fae':'#758694',metalness:.45,roughness:.4}));
+      const wafer=new THREE.Mesh(new THREE.CylinderGeometry(20,20,.8,96),new THREE.MeshStandardMaterial({color:state.substrate.oxideNm?'#b5c5cf':'#758694',metalness:.2,roughness:.55}));
       this.group.add(wafer);
       if(state.substrate.die){const ratio=40/(state.substrate.waferInch*25.4),die=state.substrate.die;const mesh=new THREE.Mesh(new THREE.BoxGeometry(die.widthMm*ratio,.25,die.lengthMm*ratio),new THREE.MeshStandardMaterial({color:'#55bfc4',transparent:true,opacity:.65}));mesh.position.y=.53;this.group.add(mesh);}
       this.slice=null;
@@ -53,24 +55,24 @@ export class StructureViewer {
         const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({color:material.color,metalness:metal?.35:.03,roughness:metal?.48:.72}),list.length);
         list.forEach((r,i)=>{
           const exploded=this.exploded?Math.max(0,stepOrder.indexOf(r.layer.stepId))*1.4:0;
-          matrix.compose(new THREE.Vector3(((r.start+r.end)/2)*dx-state.sizeUm/2,(r.z0+r.z1)/2*sz+exploded,(r.y+.5)*dx-state.sizeUm/2),quaternion,new THREE.Vector3((r.end-r.start)*dx,Math.max(.005,(r.z1-r.z0)*sz),dx));mesh.setMatrixAt(i,matrix);
+          matrix.compose(new THREE.Vector3(((r.start+r.end)/2)*dx-state.sizeUm/2,(displayZ(r.z0)+displayZ(r.z1))/2+exploded,(r.y+.5)*dx-state.sizeUm/2),quaternion,new THREE.Vector3((r.end-r.start)*dx,Math.max(.005,displayZ(r.z1)-displayZ(r.z0)),dx));mesh.setMatrixAt(i,matrix);
           if(r.layer.exposed!==undefined)mesh.setColorAt(i,new THREE.Color(r.layer.exposed?'#d5a69c':material.color));
         });mesh.instanceMatrix.needsUpdate=true;this.group.add(mesh);
       }
-      const grid=new THREE.GridHelper(state.sizeUm*1.5,12,'#9bafbf','#d2dee7');grid.position.y=minZ*sz-.3;this.group.add(grid);
-      const height=(maxZ-minZ)*sz+2;
+      const grid=new THREE.GridHelper(state.sizeUm*1.5,12,'#9bafbf','#d2dee7');grid.position.y=displayZ(minZ)-.3;this.group.add(grid);
+      const height=displayZ(maxZ)-displayZ(minZ)+2;
       this.slice=new THREE.Mesh(new THREE.PlaneGeometry(state.sizeUm,height),new THREE.MeshBasicMaterial({color:'#55bfc4',transparent:true,opacity:.12,side:THREE.DoubleSide,depthWrite:false}));
-      this.slice.position.set(0,(maxZ+minZ)/2*sz,(sliceIndex+.5)*dx-state.sizeUm/2);this.group.add(this.slice);
-      const lineGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-state.sizeUm/2,maxZ*sz+.6,this.slice.position.z),new THREE.Vector3(state.sizeUm/2,maxZ*sz+.6,this.slice.position.z)]);
+      this.slice.position.set(0,(displayZ(maxZ)+displayZ(minZ))/2,(sliceIndex+.5)*dx-state.sizeUm/2);this.group.add(this.slice);
+      const lineGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-state.sizeUm/2,displayZ(maxZ)+.6,this.slice.position.z),new THREE.Vector3(state.sizeUm/2,displayZ(maxZ)+.6,this.slice.position.z)]);
       this.group.add(new THREE.Line(lineGeo,new THREE.LineBasicMaterial({color:'#0b747b'})));
     }
-    this.frameY=(maxZ+minZ)*sz*.35;
+    this.frameY=(displayZ(maxZ)+displayZ(minZ))*.5;
     if(!this.framed){this.camera.position.y+=this.frameY-1;this.controls.target.y=this.frameY;this.framed=true;}
     this.render();
     return {gain:this.gain,minZ,maxZ};
   }
   setView(type) {
-    const size=this.wafer?40:(this.state?.sizeUm||40),d=size*1.75,targetY=this.wafer?0:(this.frameY||0);
+    const size=this.wafer?40:(this.state?.sizeUm||40),d=size*1.62,targetY=this.wafer?0:(this.frameY||0);
     if(type==='top')this.camera.position.set(0,targetY+d*1.25,.01);
     else if(type==='front')this.camera.position.set(0,targetY+d*.1,d*1.35);
     else this.camera.position.set(d*.9,targetY+d*.8,d);

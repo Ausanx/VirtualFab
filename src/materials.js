@@ -23,7 +23,7 @@ export const materials = [
   conductor('Al','铝 Al','#B3BEC6',4.28),conductor('Pt','铂 Pt','#B8B8AD',5.65),
   conductor('Pd','钯 Pd','#98A3AD',5.12),conductor('W','钨 W','#798188',4.55),
   {...conductor('ITO','氧化铟锡 ITO','#95CAD5',4.7,'https://doi.org/10.1002/aelm.201600529'),category:'tco',bandGap:estimate(3.7,'eV','光学带隙示例，不等同于输运带隙'),note:'透明导电氧化物；功函数、电阻率和透过率依赖氧分压、Sn 含量、厚度与退火。'},
-  dielectric('SiO2','二氧化硅 SiO₂','#2F7FAE',9,3.9),
+  dielectric('SiO2','二氧化硅 SiO₂','#B5C5CF',9,3.9),
   dielectric('Al2O3','氧化铝 Al₂O₃','#77A8C4',8.8,9),
   dielectric('HfO2','氧化铪 HfO₂','#4B94BD',5.8,20),
   dielectric('hBN','六方氮化硼 h-BN','#A9C8D6',6,4),

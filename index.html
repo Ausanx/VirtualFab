@@ -25,12 +25,12 @@
       <div class="library-note"><span class="status-dot"></span>项目数据保存在本机<br><span>材料值附带来源与证据等级</span></div>
     </aside>
     <section class="workspace">
-      <div class="workspace-heading"><div><small>FABRICATION WORKSPACE</small><h1 id="workspace-title">器件工艺</h1></div><button id="run-all" class="primary">▶ 运行至末步</button></div>
+      <div class="workspace-heading"><div><h1 id="workspace-title">工艺编辑器</h1></div><button id="run-all" class="primary">▶ 运行至末步</button></div>
       <div class="view-tabs" role="tablist" aria-label="工作视图"><button role="tab" aria-selected="true" data-view="structure">结构视图</button><button role="tab" aria-selected="false" data-view="bands">能带与界面</button><button role="tab" aria-selected="false" data-view="electrical">电学模型</button><span id="model-label">局部区域 · 40 × 40 μm</span></div>
       <div id="structure-view" class="main-view">
         <div class="viewport-toolbar"><span><i class="live-dot"></i>三维局部结构</span><div><button id="view-perspective" aria-label="恢复透视视角">透视</button><button id="view-top">俯视</button><button id="view-front">正视</button><button id="explode" aria-pressed="false">展开层</button><button id="wafer-view" aria-pressed="false">晶圆</button></div></div>
         <div id="three-view"><div class="viewport-loading">正在加载结构视窗…</div></div>
-        <div class="viewport-meta"><span id="scale-label"></span><span>拖动旋转 · 滚轮缩放</span></div>
+        <div class="viewport-meta"><span id="scale-label"></span></div>
         <div id="layer-legend" class="layer-legend"></div>
       </div>
       <div id="bands-view" class="main-view analysis-view" hidden><div class="analysis-title"><h2>材料带边</h2><span>共同真空参考 · eV</span></div><p class="view-note">显示孤立材料带边的对齐近似。接触后能带弯曲、界面偶极与费米能级钉扎尚未求解。</p><div id="band-diagram"></div><div id="interface-results"></div></div>
@@ -38,7 +38,7 @@
       <section class="slice-panel"><div class="slice-heading"><strong>截面 A—A′</strong><label>Y = <output id="slice-value">0</output> μm <input type="range" id="slice-range" min="0" max="39" value="20" aria-label="剖面位置"></label><span>横向 μm · 厚度 nm</span></div><div id="slice-plot"></div></section>
     </section>
     <aside class="inspector"><div class="inspector-tabs" role="tablist" aria-label="检查面板"><button role="tab" data-panel="params" aria-selected="true">工艺参数</button><button role="tab" data-panel="results" aria-selected="false">结构诊断 <span id="diagnostic-count"></span></button></div><div id="params-panel"></div><div id="results-panel" hidden></div></aside>
-    <section class="timeline"><div class="timeline-heading"><div><strong>工艺流程</strong><span id="step-counter"></span></div><div class="playback"><button id="first-step" aria-label="回到空白状态">|◀</button><button id="previous-step" aria-label="上一步">◀</button><button id="play" aria-label="播放工艺">▶</button><button id="next-step" aria-label="下一步">▶|</button><span id="elapsed"></span></div></div><div id="recipe-cards" aria-label="工艺步骤"></div><div class="timeline-footer"><span>单击查看步骤 · 拖动卡片重排 · 参数面板可前移 / 后移</span><span id="simulation-status"></span></div></section>
+    <section class="timeline"><div class="timeline-heading"><div><strong>工艺流程</strong><span id="step-counter"></span></div><div class="playback"><button id="first-step" aria-label="回到空白状态">|◀</button><button id="previous-step" aria-label="上一步">◀</button><button id="play" aria-label="播放工艺">▶</button><button id="next-step" aria-label="下一步">▶|</button><span id="elapsed"></span></div></div><div id="recipe-cards" aria-label="工艺步骤"></div><div class="timeline-footer"><span id="simulation-status"></span></div></section>
   </main>
   <dialog id="materials-dialog"><div class="dialog-heading"><div><small>MATERIAL LIBRARY</small><h2>本地材料库</h2></div><button id="close-materials" aria-label="关闭材料库">✕</button></div><div class="material-toolbar"><input id="material-search" placeholder="搜索名称、类别或牌号…" aria-label="搜索材料"><button id="new-material" class="primary">＋ 自定义材料</button></div><div class="material-dialog-body"><div id="material-list"></div><div id="material-detail"></div></div></dialog>
   <dialog id="confirm-dialog"><h2 id="confirm-title">新建项目</h2><p id="confirm-text"></p><div class="dialog-actions"><button id="confirm-cancel">取消</button><button id="confirm-ok" class="primary">继续</button></div></dialog>

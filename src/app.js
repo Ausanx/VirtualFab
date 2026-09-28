@@ -37,7 +37,7 @@ function fieldHtml(key,value,s){
 }
 function renderParams(){
   const s=project.steps[selected];if(!s){$('#params-panel').innerHTML='<p class="empty-message">从左侧添加工艺卡片，或选择已有步骤。</p>';return;}
-  $('#params-panel').innerHTML=`<div class="step-tag"><span>${String(selected+1).padStart(2,'0')}</span><span>/</span><span>${processTypes[s.type].short}</span><span class="badge">${s.enabled?'已启用':'已禁用'}</span></div><h2 class="inspector-title">${esc(processTypes[s.type].label)}</h2><p class="step-description">${esc(descriptions[s.type])}</p><form id="param-form" class="param-form"><label>步骤名称<input name="stepName" value="${esc(s.name)}" maxlength="120" required></label>${Object.entries(s.params).filter(([k])=>k in processTypes[s.type].defaults).map(([k,v])=>fieldHtml(k,v,s)).join('')}<label class="check-label"><input name="stepEnabled" type="checkbox"${s.enabled?' checked':''}>启用此步骤</label><button type="submit" class="primary">应用参数并重算</button></form><hr class="section-line"><div class="card-actions"><button data-action="up"${selected===0?' disabled':''}>↑ 前移</button><button data-action="down"${selected===project.steps.length-1?' disabled':''}>↓ 后移</button><button data-action="duplicate">复制步骤</button><button data-action="delete" class="remove"${project.steps.length<=1?' disabled':''}>删除步骤</button></div><p class="param-footnote">横向采样间距 ${(project.sizeUm/project.resolution).toFixed(2)} μm；Z 方向保留膜厚数值。改变上游卡片会重新计算下游结构。</p>`;
+  $('#params-panel').innerHTML=`<div class="step-tag"><span>${String(selected+1).padStart(2,'0')}</span><span>/</span><span>${processTypes[s.type].short}</span><span class="badge">${s.enabled?'已启用':'已禁用'}</span></div><h2 class="inspector-title">${esc(processTypes[s.type].label)}</h2><details class="step-description"><summary>工艺模型说明</summary><p>${esc(descriptions[s.type])}</p></details><form id="param-form" class="param-form"><label>步骤名称<input name="stepName" value="${esc(s.name)}" maxlength="120" required></label>${Object.entries(s.params).filter(([k])=>k in processTypes[s.type].defaults).map(([k,v])=>fieldHtml(k,v,s)).join('')}<label class="check-label"><input name="stepEnabled" type="checkbox"${s.enabled?' checked':''}>启用此步骤</label><button type="submit" class="primary">应用参数并重算</button></form><hr class="section-line"><div class="card-actions"><button data-action="up"${selected===0?' disabled':''}>↑ 前移</button><button data-action="down"${selected===project.steps.length-1?' disabled':''}>↓ 后移</button><button data-action="duplicate">复制步骤</button><button data-action="delete" class="remove"${project.steps.length<=1?' disabled':''}>删除步骤</button></div>`;
   $('#param-form').addEventListener('submit',e=>{
     e.preventDefault();stop();const next=structuredClone(project),target=next.steps[selected],data=new FormData(e.target);
     target.name=String(data.get('stepName')).trim();target.enabled=data.has('stepEnabled');
@@ -53,10 +53,18 @@ function cardAction(action){stop();const next=structuredClone(project);
   through=selected;applyChange(next);
 }
 function stepSummary(s){const p=s.params;if(p.thicknessNm)return `${p.material} · ${p.thicknessNm} nm`;if(s.type==='substrate')return `${p.waferInch}″ ${p.material}${p.oxideNm?' / SiO₂':''}`;if(s.type==='expose')return patterns[p.pattern];if(s.type==='etch')return `${p.material} · ${p.durationS} s`;if(p.temperatureC)return `${p.temperatureC} °C · ${p.durationS} s`;return p.durationS?`${p.durationS} s`:s.type==='dice'?`${p.widthMm} × ${p.lengthMm} mm`:'';}
+function revealCurrentStep(){
+  const strip=$('#recipe-cards'),current=strip.querySelector('.recipe-card.current');
+  if(!current)return;
+  const bounds=current.getBoundingClientRect(),viewport=strip.getBoundingClientRect();
+  if(bounds.left<viewport.left)strip.scrollLeft+=bounds.left-viewport.left;
+  else if(bounds.right>viewport.right)strip.scrollLeft+=bounds.right-viewport.right;
+}
 function renderCards(){
-  const oldScroll=$('#recipe-cards').scrollLeft;
-  $('#recipe-cards').innerHTML=project.steps.map((s,i)=>`<button class="recipe-card${i===selected?' current':''}${s.enabled?'':' disabled'}" draggable="true" data-index="${i}" aria-label="步骤 ${i+1} ${esc(s.name)}" aria-current="${i===selected?'step':'false'}"><div class="recipe-top"><span>${String(i+1).padStart(2,'0')} · ${processTypes[s.type].short}</span><span>${state.stoppedAt===i?'!':i<=state.completed&&s.enabled?'✓':'○'}</span></div><strong>${esc(s.name)}</strong><small>${esc(stepSummary(s))}</small></button>`).join('');
-  $('#recipe-cards').scrollLeft=oldScroll;
+  const strip=$('#recipe-cards'),oldScroll=strip.scrollLeft;
+  strip.innerHTML=project.steps.map((s,i)=>`<button class="recipe-card${i===selected?' current':''}${s.enabled?'':' disabled'}" draggable="true" data-index="${i}" aria-label="步骤 ${i+1} ${esc(s.name)}" aria-current="${i===selected?'step':'false'}"><div class="recipe-top"><span>${String(i+1).padStart(2,'0')} · ${processTypes[s.type].short}</span><span>${state.stoppedAt===i?'!':i<=state.completed&&s.enabled?'✓':'○'}</span></div><strong>${esc(s.name)}</strong><small>${esc(stepSummary(s))}</small></button>`).join('');
+  strip.scrollLeft=oldScroll;
+  revealCurrentStep();
   $$('.recipe-card').forEach(b=>{
     b.onclick=()=>selectStep(Number(b.dataset.index));
     b.ondragstart=e=>{e.dataTransfer.setData('text/plain',b.dataset.index);e.dataTransfer.effectAllowed='move';};
@@ -69,13 +77,15 @@ function renderCards(){
 function selectStep(i,{playing=false}={}){if(!playing)stop();through=Math.max(-1,Math.min(i,project.steps.length-1));selected=Math.max(0,through);render();$(`.recipe-card[data-index="${selected}"]`)?.scrollIntoView({block:'nearest',inline:'nearest'});}
 function renderResults(){
   const issues=state.diagnostics.filter(d=>d.severity!=='info');$('#diagnostic-count').textContent=issues.length?issues.length:'';
-  $('#results-panel').innerHTML=`<h3>结构与功能依据</h3><p class="result-summary">${result.structures.length} 类结构候选 · ${issues.length} 项需检查<br>结构成立不等同于功能已验证。</p>${result.structures.length?result.structures.map(s=>`<article class="structure-result"><span class="badge">${esc(s.code)}</span><h3>${esc(s.title)}</h3><p class="materials">${s.materials.map(esc).join(' / ')}</p>${s.evidence.map(t=>`<p>${esc(t)}</p>`).join('')}<details><summary>查看 ${s.missing.length} 项待核实条件</summary><ul>${s.missing.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></details></article>`).join(''):'<p class="empty-message">当前步骤尚未形成可识别的功能结构。继续执行工艺后自动更新。</p>'}<hr class="section-line"><h3>工艺检查</h3>${state.diagnostics.length?state.diagnostics.map(d=>`<div class="diagnostic ${d.severity}"><button data-diag-step="${d.index}">步骤 ${d.index+1} · ${d.severity==='error'?'停止':d.severity==='info'?'模型说明':'需核实'} ↗</button><p>${esc(d.message)}</p></div>`).join(''):'<p class="empty-message">当前未发现流程错误。材料兼容性仍取决于参数完整程度。</p>'}`;
+  const notices=state.diagnostics.filter(d=>d.severity==='info');
+  const diagnosticHtml=d=>`<div class="diagnostic ${d.severity}"><button data-diag-step="${d.index}">步骤 ${d.index+1} · ${d.severity==='error'?'停止':d.severity==='info'?'模型说明':'需核实'} ↗</button><p>${esc(d.message)}</p></div>`;
+  $('#results-panel').innerHTML=`<h3>结构识别</h3><p class="result-summary">${result.structures.length} 类候选结构 · ${issues.length} 项工艺检查</p>${result.structures.length?result.structures.map(s=>`<article class="structure-result"><span class="badge">${esc(s.code)}</span><h3>${esc(s.title)}</h3><p class="materials">${s.materials.map(esc).join(' / ')}</p>${s.evidence.map(t=>`<p>${esc(t)}</p>`).join('')}<details><summary>查看 ${s.missing.length} 项待核实条件</summary><ul>${s.missing.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></details></article>`).join(''):'<p class="empty-message">当前步骤尚未形成可识别结构。</p>'}<div class="diagnostic-heading"><h3>工艺检查</h3><span>${issues.length}</span></div>${issues.length?issues.map(diagnosticHtml).join(''):'<p class="empty-message">当前无工艺警告</p>'}${notices.length?`<details class="model-notices"><summary>模型说明 · ${notices.length}</summary>${notices.map(diagnosticHtml).join('')}</details>`:''}`;
   $$('[data-diag-step]').forEach(b=>b.onclick=()=>{selectStep(Number(b.dataset.diagStep));setPanel('params');});
 }
 function setPanel(panel){$$('[data-panel]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.panel===panel)));$('#params-panel').hidden=panel!=='params';$('#results-panel').hidden=panel!=='results';}
 function renderViews(){
   let scale={gain:1};try{if(viewer)scale=viewer.update(state,project.materials,sliceIndex);}catch(error){toast('三维视图未能更新：'+error.message);}
-  $('#scale-label').textContent=viewer?.wafer?`${state.substrate?.waferInch||'—'} inch 晶圆 · 中心框为划片示意`:`Z 显示 ×${scale.gain.toFixed(1)} · 衬底底部截断`;
+  $('#scale-label').textContent=viewer?.wafer?`${state.substrate?.waferInch||'—'} inch 晶圆 · 中心框为划片示意`:`功能层 Z ×${scale.gain.toFixed(1)} · 衬底示意截断`;
   const ids=[...new Set(state.cells.flat().map(l=>l.material))];
   $('#layer-legend').innerHTML=ids.map(id=>{const m=getMaterial(project.materials,id);return `<span class="legend-item"><i class="swatch" style="background:${m.color}"></i>${esc(m.name)}</span>`;}).join('')||'<span>尚未执行衬底步骤</span>';
   drawSlice($('#slice-plot'),state,project.materials,sliceIndex);
@@ -85,9 +95,9 @@ function renderViews(){
 }
 function render(){
   const start=performance.now();state=simulate(project,through);result=analyze(state,project.materials);const elapsed=performance.now()-start;
-  $('#project-name').value=project.name;$('#workspace-title').textContent=project.name;$('#material-count').textContent=`${project.materials.length} 种材料 · 可编辑来源`;
+  $('#project-name').value=project.name;$('#material-count').textContent=`${project.materials.length} 种材料`;
   $('#model-label').textContent=`局部区域 · ${project.sizeUm} × ${project.sizeUm} μm`;$('#elapsed').textContent=`计算 ${elapsed.toFixed(0)} ms`;
-  $('#simulation-status').textContent=state.stoppedAt!==null?`步骤 ${state.stoppedAt+1} 停止 · 查看诊断`:'几何计算完成 · 物理适用性见诊断';
+  $('#simulation-status').textContent=state.stoppedAt!==null?`步骤 ${state.stoppedAt+1} 停止 · 查看诊断`:'几何计算完成';
   renderCards();renderParams();renderResults();renderViews();
 }
 function renderLibrary(){
@@ -156,4 +166,5 @@ $('#open-materials').onclick=()=>{materialId=project.materials[0].id;renderMater
 function updateCurve(){try{if(!$('#curve-form').reportValidity())return false;const values=Object.fromEntries(new FormData($('#curve-form')).entries());for(const key in values)values[key]=Number(values[key]);curveRows=diodeCurve({...values,minV:-.5,maxV:.5});drawCurve($('#curve-plot'),curveRows);return true;}catch(error){curveRows=[];$('#curve-plot').textContent=error.message;toast(error.message);return false;}}
 $('#curve-form').onsubmit=e=>{e.preventDefault();updateCurve();};$('#export-curve').onclick=()=>{if(updateCurve())download('manual-shockley-model.csv','voltage_V,current_A\n'+curveRows.map(r=>`${r.voltageV},${r.currentA}`).join('\n')+'\n','text/csv');};
 try{viewer=new StructureViewer($('#three-view'));}catch(error){$('#three-view').innerHTML='<p class="empty-message">WebGL 不可用。剖面、工艺计算与诊断仍可使用。</p>';toast('三维视窗初始化失败：'+error.message);}
+new ResizeObserver(revealCurrentStep).observe($('#recipe-cards'));
 renderLibrary();render();updateCurve();if(restoreError)toast(restoreError);
