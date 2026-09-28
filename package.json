@@ -3,16 +3,23 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "desktop.mjs",
   "scripts": {
     "start": "node server.mjs",
+    "desktop": "electron .",
+    "package:win": "electron-packager . VirtualFab --platform=win32 --arch=x64 --out=dist --asar --overwrite --ignore=artifacts --ignore=dist --ignore=docs --ignore=tests --ignore=.git",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node tests/browser.mjs",
-    "check": "node --check src/app.js && node --check src/engine.js && node --check src/physics.js && node --check src/viewer.js"
+    "test:desktop": "node tests/desktop.mjs",
+    "test:desktop:packaged": "node tests/desktop.mjs --packaged",
+    "check": "node --check desktop.mjs && node --check server.mjs && node --check src/app.js && node --check src/engine.js && node --check src/physics.js && node --check src/viewer.js"
   },
   "dependencies": {
     "three": "0.180.0"
   },
   "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^44.4.5",
     "playwright": "^1.63.0"
   }
 }

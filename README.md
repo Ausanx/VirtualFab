@@ -1,8 +1,19 @@
 # VirtualFab Studio
 
-面向二维材料与薄膜器件的本地工艺工作台。运行时不使用 CDN、远程 AI 或云存储；项目数据保存在当前浏览器，可导入导出 JSON。
+面向二维材料与薄膜器件的本地工艺工作台。提供 Windows 桌面版和开发用本地网页入口。运行时不使用 CDN、远程 AI 或云存储；项目可导入导出 JSON。
 
-## 启动
+## Windows 桌面版
+
+打开 `dist/VirtualFab-win32-x64/VirtualFab.exe`。整个 `VirtualFab-win32-x64` 文件夹需放在一起，程序不依赖已安装的 Node.js、浏览器或本地服务。桌面窗口由 Electron 内嵌 Chromium 渲染，目前不是 Qt 或 .NET 原生控件重写。项目自动保存在当前 Windows 用户的应用数据中。首次从旧网页版本迁移时，先在网页中导出 JSON，再从桌面版“打开项目”导入。
+
+重新构建便携版：
+
+```powershell
+npm ci
+npm run package:win
+```
+
+## 开发入口
 
 需要 Node.js 22 或更新版本。首次在本目录执行：
 
@@ -11,7 +22,7 @@ npm install
 npm start
 ```
 
-然后打开 [VirtualFab 工作台](http://127.0.0.1:4173)。Windows 也可右键运行 `start.ps1`。端口占用时设置 `$env:VIRTUALFAB_PORT=4174` 后启动。
+然后打开 [VirtualFab 工作台](http://127.0.0.1:4173)。Windows 也可右键运行 `start.ps1`。端口占用时设置 `$env:VIRTUALFAB_PORT=4174` 后启动。直接调试桌面窗口可用 `npm run desktop`。
 
 ## 当前可用
 
@@ -23,7 +34,7 @@ npm start
 - 源漏与栅极按多层导体连通网络检查；双栅要求同一连通沟道。电极短接时显示诊断，不认作独立 MIM / FET 端子。
 - 能带 Type-I/II/III 是独立于 n/p 类型的标签。缺失带边不绘制假数值。
 - 手动参数的 Shockley I–V 示例与 CSV 导出，供检查模型，不声称从材料组合预测得到器件性能。
-- 自动保存在浏览器本机存储；导入格式与大小校验；模板切换/导入前保留一个 `virtualfab.project.v1.previous` 备份。
+- 自动保存在当前桌面应用或浏览器的本机存储；导入格式与大小校验；模板切换/导入前保留一个 `virtualfab.project.v1.previous` 备份。
 
 ## 模型边界
 
@@ -43,7 +54,13 @@ npm start
 npm test
 npm run check
 npm run test:browser
+npm run test:desktop
+npm run test:desktop:packaged
 ```
+
+最后一个检查需先执行 `npm run package:win`。桌面检查使用 `artifacts/desktop-smoke-profile` 隔离配置，不修改正常使用的项目。
+
+2026-09-28 验证：开发与打包后的桌面程序均能启动、渲染三维结构、导入导出 JSON，并在关闭后恢复项目；字体层级和桌面、移动布局已通过截图检查。
 
 2026-09-24 验证：15 项核心 / HTTP 测试通过；语法检查通过；Edge 无头浏览器完整操作检查通过，未发现浏览器错误或远程请求。浏览器测试覆盖 WebGL、NR9 步骤回放、参数编辑、卡片重排、模板切换、自定义材料、来源校验、刷新恢复、JSON 导入导出、CSV 及异常参数，另检查 1440 px 桌面和 390 px 移动布局。截图保存在 `artifacts/`，该目录不纳入版本控制。
 
