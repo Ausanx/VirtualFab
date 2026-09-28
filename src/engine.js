@@ -95,17 +95,19 @@ export function simulate(project,through=project.steps.length-1) {
       } else if(s.type==='coat') {
         if(m.category!=='resist')throw Error('涂胶步骤必须选择光刻胶材料。');
         if(state.activeResist)throw Error('已有胶层；首版需先去胶，再进行下一轮光刻。');
-        state.activeResist={id:s.id,material:m.id,baked:false,exposed:false,developed:false};
+        state.activeResist={id:s.id,material:m.id,baked:false,exposed:false,postBaked:false,developed:false,nonDirectionalDeposit:false};
         state.cells.forEach(c=>{const top=c.at(-1)?.z1||0;c.push({material:m.id,z0:top,z1:top+p.thicknessNm,stepId:s.id,role:'resist',doping:'unknown'});});
         warn('RESIST_CALIBRATION','胶厚直接采用卡片输入；旋涂转速尚未通过该牌号曲线换算。',s,index,'info');
       } else if(s.type==='bake') {
         if(!state.activeResist)throw Error('烘烤卡片需要当前胶层。');
-        state.activeResist.baked=true;
+        if(state.activeResist.exposed&&!state.activeResist.developed)state.activeResist.postBaked=true;
+        else state.activeResist.baked=true;
       } else if(s.type==='expose') {
         if(!state.activeResist)throw Error('曝光前需要涂胶。');
         if(!state.activeResist.baked)warn('UNBAKED','未记录软烘；曝光按理想掩膜处理。',s,index);
         if(state.activeResist.developed)throw Error('此胶层已显影，请重新涂胶。');
         const pr=getMaterial(project.materials,state.activeResist.material);
+        if(pr.id==='AZ5214E'&&pr.tone==='negative')throw Error('AZ 5214E 的反转模式需要反转烘烤和泛曝光；当前模型仅支持正胶模式。');
         let openingCount=0;
         state.cells.forEach((c,i)=>{
           const pos=cellPosition(i,state),opening=inPattern(pos.x,pos.y,p),layer=c.find(l=>l.stepId===state.activeResist.id);
@@ -117,6 +119,7 @@ export function simulate(project,through=project.steps.length-1) {
       } else if(s.type==='develop') {
         if(!state.activeResist?.exposed)throw Error('显影前需要完成曝光。');
         const pr=getMaterial(project.materials,state.activeResist.material);
+        if(pr.id==='NR9-3000PY'&&!state.activeResist.postBaked)throw Error('NR9-3000PY 显影前需要曝光后烘烤；请在曝光与显影之间加入烘烤步骤。');
         state.cells=state.cells.map(c=>c.filter(l=>!(l.stepId===state.activeResist.id&&(pr.tone==='positive'?l.exposed:!l.exposed))));
         state.activeResist.developed=true;state.exposure=null;
       } else if(s.type==='deposit'||s.type==='transfer') {
@@ -131,6 +134,7 @@ export function simulate(project,through=project.steps.length-1) {
         });
         if(s.type==='deposit'&&['ALD','CVD','溅射'].includes(p.method))warn('TOP_SURFACE_APPROX','采用顶表面膜厚近似；侧壁覆盖、ALD 成核与溅射损伤尚未求解。',s,index,'info');
         if(state.activeResist&&s.type==='deposit') {
+          if(!['热蒸镀','电子束蒸镀'].includes(p.method))state.activeResist.nonDirectionalDeposit=true;
           const thickness=state.cells.flat().find(l=>l.stepId===state.activeResist.id);
           if(thickness&&p.thicknessNm>(thickness.z1-thickness.z0)/3)warn('LIFTOFF_RATIO','沉积厚度超过胶厚的 1/3；需检查侧壁桥连与剥离窗口。',s,index);
         }
@@ -157,6 +161,7 @@ export function simulate(project,through=project.steps.length-1) {
         if(s.type==='liftoff'&&!state.activeResist.developed)throw Error('lift-off 需要已显影的胶层与开口。');
         const pr=getMaterial(project.materials,state.activeResist.material);
         if(s.type==='liftoff'&&pr.id==='SU8')throw Error('交联 SU-8 不支持此默认溶剂剥离模型，请更换配方。');
+        if(s.type==='liftoff'&&state.activeResist.nonDirectionalDeposit)warn('LIFTOFF_CONFORMAL','胶上使用了非定向沉积；侧壁可能连续包覆，几何剥离结果仅为理想上限，需核对胶型与剥离可达性。',s,index);
         state.cells=state.cells.map(c=>{
           const at=c.findIndex(l=>l.stepId===state.activeResist.id);
           if(at<0)return c;

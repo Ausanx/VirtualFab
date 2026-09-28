@@ -11,7 +11,7 @@ const deposit = (material, doping='unknown') => step('deposit', { material, dopi
 const codes = p => analyze(simulate(p), p.materials).structures.map(s => s.code);
 
 test('lift-off removes resist-supported metal while retaining metal in developed openings', () => {
-  const p = project([substrate(), step('coat'), step('bake'), step('expose', { pattern: 'stripe-x', widthUm: 6, lengthUm:40 }), step('develop'), deposit('Au')]);
+  const p = project([substrate(), step('coat'), step('bake'), step('expose', { pattern: 'stripe-x', widthUm: 6, lengthUm:40 }), step('bake'), step('develop'), deposit('Au')]);
   const before = simulate(p);
   assert.equal(before.cells.filter(c=>c.some(l=>l.material==='Au')).length,1600);
   p.steps.push(step('liftoff'));
@@ -26,8 +26,25 @@ test('negative resist exposure reverses the optical mask to obtain the requested
   const p = project([substrate(), step('coat'), step('bake'), step('expose',{pattern:'rect',widthUm:8,lengthUm:8})]);
   const s=simulate(p);
   assert.equal(s.cells.filter(c=>c.at(-1).exposed===false).length,64);
-  p.steps.push(step('develop'));
+  p.steps.push(step('bake'),step('develop'));
   assert.equal(simulate(p).cells.filter(c=>!c.some(l=>l.material==='NR9-3000PY')).length,64);
+});
+
+test('NR9 requires post-exposure bake before development', () => {
+  const p=project([substrate(),step('coat'),step('bake',{temperatureC:150}),step('expose'),step('develop')]);
+  assert.equal(simulate(p).stoppedAt,4);
+  p.steps.splice(4,0,step('bake',{temperatureC:100}));
+  assert.equal(simulate(p).stoppedAt,null);
+});
+
+test('AZ 5214E uses positive mode until image-reversal steps are modeled', () => {
+  const az=materials.find(m=>m.id==='AZ5214E');
+  assert.equal(az.tone,'positive');
+});
+
+test('non-directional deposition does not silently promise reliable lift-off', () => {
+  const p=project([substrate(),step('coat'),step('bake'),step('expose'),step('bake'),step('develop'),step('deposit',{method:'ALD'}),step('liftoff')]);
+  assert.ok(simulate(p).diagnostics.some(d=>d.code==='LIFTOFF_CONFORMAL'));
 });
 
 test('etch consumes exposed target only; an unetched covering dielectric blocks it', () => {

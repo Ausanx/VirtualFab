@@ -32,7 +32,7 @@ try {
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'short desktop content should not overflow horizontally');
   await page.screenshot({path:'artifacts/desktop-narrow.png'});
   await page.setViewportSize({width:1440,height:1000});
-  assert.equal(await page.locator('.recipe-card').count(),22);
+  assert.equal(await page.locator('.recipe-card').count(),25);
   await page.locator('[data-panel="results"]').click();
   assert.match(await page.locator('#results-panel').innerText(),/MIM/);
   await page.screenshot({path:'artifacts/desktop-crossbar.png',fullPage:true});
@@ -46,7 +46,7 @@ try {
   assert.equal((await saved()).steps[3].params.thicknessNm,2400);
   await clickStep(5);
   assert.match(await page.locator('.inspector-title').innerText(),/曝光/);
-  await clickStep(8);
+  await clickStep(9);
   assert.doesNotMatch(await page.locator('#layer-legend').innerText(),/NR9-3000PY/);
 
   // Duplicate, reorder, disable, remove and add using the exposed controls.
@@ -61,7 +61,7 @@ try {
   await page.locator('[data-add="anneal"]').click();
   assert.equal((await saved()).steps[3].type,'anneal');
   await page.locator('[data-action="delete"]').click();
-  assert.equal(await page.locator('.recipe-card').count(),22);
+  assert.equal(await page.locator('.recipe-card').count(),25);
   await page.locator('#run-all').click();
   await page.locator('#slice-range').fill('4');
   assert.equal(await page.locator('#slice-value').innerText(),'-15.5');

@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { _electron as electron } from 'playwright';
 
 const packaged=process.argv.includes('--packaged');
 const profile=path.resolve('artifacts/desktop-smoke-profile');
 const executablePath=packaged?path.resolve('dist/VirtualFab-win32-x64/VirtualFab.exe'):undefined;
+await mkdir(profile,{recursive:true});
+await rm(profile,{recursive:true,force:true});
 await mkdir(profile,{recursive:true});
 
 async function open() {

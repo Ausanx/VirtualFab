@@ -21,10 +21,10 @@ export function step(type,params={},name) {
   return {id:crypto.randomUUID(),type,name:name||processTypes[type].label,enabled:true,params:{...structuredClone(processTypes[type].defaults),...params}};
 }
 function metal(name,pattern,params={}) {
-  return [step('coat',{},`${name} · 涂胶`),step('bake'),step('expose',pattern,`${name} · 曝光`),step('develop'),step('deposit',params,`${name} · 沉积`),step('liftoff',{},`${name} · 剥离`)];
+  return [step('coat',{},`${name} · 涂胶`),step('bake',{temperatureC:150},`${name} · 软烘`),step('expose',pattern,`${name} · 曝光`),step('bake',{temperatureC:100},`${name} · 曝光后烘烤`),step('develop',{durationS:17}),step('deposit',params,`${name} · 沉积`),step('liftoff',{},`${name} · 剥离`)];
 }
 function etchMask(name,mask,params) {
-  return [step('coat',{},`${name} · 涂胶`),step('bake'),step('expose',mask,`${name} · 曝光`),step('develop'),step('etch',params,name),step('strip')];
+  return [step('coat',{},`${name} · 涂胶`),step('bake',{temperatureC:150},`${name} · 软烘`),step('expose',mask,`${name} · 曝光`),step('bake',{temperatureC:100},`${name} · 曝光后烘烤`),step('develop',{durationS:17}),step('etch',params,name),step('strip')];
 }
 export const templateNames={crossbar:'二端交叉阵列',backgate:'全局底栅晶体管',topgate:'局部顶栅晶体管',pn:'Te / InON 异质结',blank:'空白工艺'};
 export function createProject(template='crossbar') {

@@ -29,9 +29,9 @@ export const materials = [
   dielectric('hBN','六方氮化硼 h-BN','#A9C8D6',6,4),
   {...dielectric('glass','玻璃','#92A3AE',9,4),category:'substrate',note:'玻璃品类相关；此条只供几何衬底使用。'},
   {...dielectric('sapphire','蓝宝石','#86AAC0',8.8,9.4),category:'substrate'},
-  resist('NR9-3000PY','negative','UV','RD6（具体条件待校准）','RR 系列/兼容去胶液（待核实）','具体牌号负胶。默认胶厚由配方填写；旋涂曲线、剂量和热预算尚待数据表核实。'),
+  {...resist('NR9-3000PY','negative','UV','RD6（具体条件待校准）','RR4 / 丙酮（需核对下层兼容性）','具体牌号负胶；官方技术资料给出 365 nm、150 °C/60 s 软烘、100 °C/60 s 曝光后烘烤与 RD6 显影参考。默认胶厚由配方填写。'),reference:'https://signupmonkey.ece.ucsb.edu/wiki/images/7/71/NR9-3000PY-revA.pdf'},
   resist('S1813','positive','UV','MF-319（工艺参考）','兼容溶剂（按膜层选择）','正胶；默认厚度和烘烤值为演示配方，不是厂商窗口。'),
-  resist('AZ5214E','negative','UV','按厂商工艺','按厂商工艺','本条按反转模式处理；反转烘烤与泛曝光在首版仅记录配方，不计算光化学。'),
+  {...resist('AZ5214E','positive','UV','按厂商工艺','按厂商工艺','当前按正胶模式处理；反转模式需另加反转烘烤与泛曝光，尚未建模。'),reference:'https://www.microchemicals.com/dokumente/datenblaetter/tds/merck/en/tds_az_5214e_photoresist.pdf'},
   resist('PMMA950A4','positive','EBL','MIBK:IPA（工艺参考）','丙酮（须检查下层兼容性）','电子束胶；本模型只处理几何开口，不预测曝光剂量响应。'),
   resist('SU8','negative','UV','PGMEA（工艺参考）','交联后较难去除','通常用于永久结构；普通 lift-off 不是默认适用路线。'),
 ];
