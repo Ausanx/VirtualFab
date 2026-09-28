@@ -42,3 +42,4 @@ small{font-size:11px}h1{font-size:19px;font-weight:600}h2{font-size:16px;font-we
 .material-row,.material-info label,.property-row>label,.material-notes,.material-source,.error-message{font-size:12px}
 .material-row small,.property-note input{font-size:11px}
 @media(max-width:560px){.brand strong{font-size:15px}.workspace-heading h1{font-size:18px}.timeline{height:180px}.viewport-meta{font-size:11px}}
+.library,.inspector,#material-list,#material-detail{scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
