@@ -16,8 +16,8 @@ function safeUrl(value){try{const u=new URL(value);return ['https:','http:'].inc
 function download(name,text,type='application/json'){const url=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function confirm(title,text,action){$('#confirm-title').textContent=title;$('#confirm-text').textContent=text;confirmAction=action;$('#confirm-dialog').showModal();}
 function stop(){if(timer){clearInterval(timer);timer=null;}$('#play').textContent='▶';$('#play').setAttribute('aria-label','播放工艺');}
-function applyChange(next){try{validateProject(next);project=next;persist();render();return true;}catch(error){toast(error.message);return false;}}
-const descriptions={substrate:'选择真实晶圆尺寸。微米级局部窗口单独计算，硅片底部在视图中截断。',dice:'矩形芯片尺寸将检查是否能放入所选圆形晶圆。',clean:'记录清洁条件与顺序；材料兼容性需匹配工艺数据。',coat:'光刻胶牌号决定正负性。当前膜厚由输入给定，转速不自动推导膜厚。',bake:'记录软烘或曝光后烘烤；NR9-3000PY 需在曝光后烘烤再显影。首版不计算交联程度。',expose:'图案定义“显影后的目标开口”。负胶会自动反转曝光区；显影步骤才移除胶。',develop:'根据当前胶的正负性与曝光结果生成实际开口。',deposit:'按顶表面沉积膜厚。用于估计层叠与开口填充；侧壁通量和成核尚未求解。',transfer:'以矩形区域放置薄膜，保留厚度和载流子类型；不模拟转移应力与残留。',etch:'按速率 × 时间消耗指定外露材料。其他材料速率未知时保留并提示。',liftoff:'移除已显影光刻胶及其上方的沉积物，保留开口内沉积层；非定向沉积时需核实侧壁连膜。',strip:'去除当前胶层；上方有沉积物时应使用 lift-off。',anneal:'记录温度、时间与气氛；未有标定模型时不自动改变能带或载流子。'};
+function applyChange(next,nextSelected=selected,nextThrough=through){try{validateProject(next);project=next;selected=nextSelected;through=nextThrough;persist();render();return true;}catch(error){toast(error.message);return false;}}
+const descriptions={substrate:'选择真实晶圆尺寸。微米级局部窗口单独计算，硅片底部在视图中截断。',dice:'矩形芯片尺寸将检查是否能放入所选圆形晶圆。',clean:'记录清洁条件与顺序；材料兼容性需匹配工艺数据。',coat:'光刻胶牌号决定正负性。当前膜厚由输入给定，转速不自动推导膜厚。',bake:'记录软烘或曝光后烘烤；零时长无效，NR9-3000PY 偏离厂商参考条件会提示未验证。首版不计算交联程度。',expose:'图案定义“显影后的目标开口”。同一胶层的多次曝光会累积；负胶会反转曝光区，显影时才移除胶。',develop:'根据当前胶的正负性与曝光结果生成实际开口。',deposit:'按顶表面沉积膜厚。用于估计层叠与开口填充；侧壁通量和成核尚未求解。',transfer:'以矩形区域放置薄膜，保留厚度和载流子类型；不模拟转移应力与残留。',etch:'按速率 × 时间消耗指定外露材料。其他材料速率未知时保留并提示。',liftoff:'移除已显影光刻胶及其上方的沉积物，保留开口内沉积层；非定向沉积时需核实侧壁连膜。',strip:'去除当前胶层；上方有沉积物时应使用 lift-off。',anneal:'记录温度、时间与气氛；未有标定模型时不自动改变能带或载流子。'};
 const fields={
  material:'材料 / 牌号',waferInch:'晶圆直径 (inch)',waferThicknessUm:'晶圆厚度 (μm)',oxideNm:'表面 SiO₂ 厚度 (nm)',backgate:'重掺杂 Si 用作全局背栅',doping:'区域载流子类型',widthMm:'划片宽度 (mm)',lengthMm:'划片长度 (mm)',method:'工艺方式',durationS:'处理时间 (s)',thicknessNm:'厚度 (nm)',rpm:'旋涂转速 (rpm)',temperatureC:'温度 (°C)',pattern:'显影后开口图案',widthUm:'宽度 (μm)',lengthUm:'长度 (μm)',pitchUm:'阵列间距 (μm)',count:'线条数量',gapUm:'源漏间隙 (μm)',offsetXUm:'X 偏移 (μm)',offsetYUm:'Y 偏移 (μm)',invert:'开口取图形的外部（用于刻蚀隔离）',role:'器件中的角色',rateNmS:'垂直刻蚀速率 (nm/s)',rateEvidence:'速率证据',rateSource:'来源与适用条件',atmosphere:'气氛',
 };
@@ -47,11 +47,11 @@ function renderParams(){
   });
   $$('#params-panel [data-action]').forEach(b=>b.onclick=()=>cardAction(b.dataset.action));
 }
-function cardAction(action){stop();const next=structuredClone(project);
-  if(action==='delete'){next.steps.splice(selected,1);selected=Math.max(0,selected-1);}
-  if(action==='duplicate'){const copy=structuredClone(next.steps[selected]);copy.id=crypto.randomUUID();copy.name+=' · 副本';next.steps.splice(selected+1,0,copy);selected++;}
-  if(action==='up'||action==='down'){const to=selected+(action==='up'?-1:1);[next.steps[selected],next.steps[to]]=[next.steps[to],next.steps[selected]];selected=to;}
-  through=selected;applyChange(next);
+function cardAction(action){stop();const next=structuredClone(project);let nextSelected=selected;
+  if(action==='delete'){next.steps.splice(selected,1);nextSelected=Math.max(0,selected-1);}
+  if(action==='duplicate'){const copy=structuredClone(next.steps[selected]);copy.id=crypto.randomUUID();copy.name+=' · 副本';next.steps.splice(selected+1,0,copy);nextSelected++;}
+  if(action==='up'||action==='down'){const to=selected+(action==='up'?-1:1);[next.steps[selected],next.steps[to]]=[next.steps[to],next.steps[selected]];nextSelected=to;}
+  applyChange(next,nextSelected,nextSelected);
 }
 function stepSummary(s){const p=s.params;if(p.thicknessNm)return `${p.material} · ${p.thicknessNm} nm`;if(s.type==='substrate')return `${p.waferInch}″ ${p.material}${p.oxideNm?' / SiO₂':''}`;if(s.type==='expose')return patterns[p.pattern];if(s.type==='etch')return `${p.material} · ${p.durationS} s`;if(p.temperatureC)return `${p.temperatureC} °C · ${p.durationS} s`;return p.durationS?`${p.durationS} s`:s.type==='dice'?`${p.widthMm} × ${p.lengthMm} mm`:'';}
 function revealCurrentStep(){
@@ -70,7 +70,7 @@ function renderCards(){
     b.onclick=()=>selectStep(Number(b.dataset.index));
     b.ondragstart=e=>{e.dataTransfer.setData('text/plain',b.dataset.index);e.dataTransfer.effectAllowed='move';};
     b.ondragover=e=>{e.preventDefault();b.classList.add('drag-over');};b.ondragleave=()=>b.classList.remove('drag-over');
-    b.ondrop=e=>{e.preventDefault();stop();const from=Number(e.dataTransfer.getData('text/plain')),to=Number(b.dataset.index);if(!Number.isInteger(from)||from<0||from>=project.steps.length)return;const next=structuredClone(project),[moved]=next.steps.splice(from,1);next.steps.splice(to,0,moved);selected=to;through=to;applyChange(next);};
+    b.ondrop=e=>{e.preventDefault();stop();const from=Number(e.dataTransfer.getData('text/plain')),to=Number(b.dataset.index);if(!Number.isInteger(from)||from<0||from>=project.steps.length)return;const next=structuredClone(project),[moved]=next.steps.splice(from,1);next.steps.splice(to,0,moved);applyChange(next,to,to);};
   });
   $('#step-counter').textContent=`${through<0?'起点':`第 ${through+1} 步`} / ${project.steps.length} 步`;
   $('#previous-step').disabled=through<0;$('#first-step').disabled=through<0;$('#next-step').disabled=through>=project.steps.length-1;
@@ -105,7 +105,7 @@ function renderLibrary(){
   const search=$('#process-search').value.toLowerCase(),groups={};
   for(const [type,data]of Object.entries(processTypes)){if(!`${data.label} ${data.short}`.toLowerCase().includes(search))continue;(groups[data.group]??=[]).push({type,...data});}
   $('#process-library').innerHTML=Object.entries(groups).map(([name,items])=>`<div class="process-group"><h3>${esc(name)}</h3>${items.map(i=>`<button class="process-item" data-add="${i.type}" aria-label="添加${esc(i.label)}"><span class="process-glyph">${i.short}</span><span>${esc(i.label)}</span><span>＋</span></button>`).join('')}</div>`).join('')||'<p class="empty-message">没有匹配的工艺</p>';
-  $$('[data-add]').forEach(b=>b.onclick=()=>{stop();const next=structuredClone(project);next.steps.splice(selected+1,0,step(b.dataset.add));selected++;through=selected;if(applyChange(next)){setPanel('params');$(`.recipe-card[data-index="${selected}"]`)?.scrollIntoView({block:'nearest',inline:'nearest'});}});
+  $$('[data-add]').forEach(b=>b.onclick=()=>{stop();const next=structuredClone(project),nextSelected=selected+1;next.steps.splice(nextSelected,0,step(b.dataset.add));if(applyChange(next,nextSelected,nextSelected)){setPanel('params');$(`.recipe-card[data-index="${selected}"]`)?.scrollIntoView({block:'nearest',inline:'nearest'});}});
 }
 function renderMaterialList(){
   const search=$('#material-search').value.toLowerCase();

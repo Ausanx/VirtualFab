@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { server } from '../server.mjs';
+import { createProject,step } from '../src/recipes.js';
 
 // Isolated port and browser profile: verification never modifies a user's saved project.
 await mkdir('artifacts',{recursive:true});
@@ -184,6 +185,42 @@ try {
   await page.waitForFunction(()=>{const plot=document.querySelector('#curve-plot');return plot.querySelector('svg')?.getBoundingClientRect().width<=plot.clientWidth;});
   assert.ok(await page.evaluate(()=>{const plot=document.querySelector('#curve-plot'),svg=plot.querySelector('svg'),label=svg.querySelector('.plot-text');return Number.parseFloat(getComputedStyle(label).fontSize)*svg.getScreenCTM().a>=11.5;}),'mobile I-V labels should remain readable');
   await page.screenshot({path:'artifacts/mobile-electrical.png'});
+
+  await page.setViewportSize({width:1440,height:920});
+  const derived=createProject('pn');
+  for(const key of ['bandGap','affinity'])derived.materials.find(m=>m.id==='Te')[key].evidence='derived';
+  derived.materials.find(m=>m.id==='Au').workFunction.evidence='derived';
+  await page.locator('#project-file').setInputFiles({name:'derived.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(derived))});
+  await page.locator('#confirm-ok').click();
+  await page.locator('[data-view="bands"]').click();
+  assert.match(await page.locator('#band-diagram').innerText(),/含推导参数/);
+  assert.match(await page.locator('#band-diagram').innerText(),/功函数 推导/);
+
+  const large=createProject('crossbar');large.sizeUm=1000;
+  await page.locator('#project-file').setInputFiles({name:'large.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(large))});
+  await page.locator('#confirm-ok').click();
+  const camera=await page.evaluate(async()=>{
+    const {StructureViewer}=await import('/src/viewer.js'),holder=document.createElement('div');
+    holder.style.cssText='width:400px;height:300px;position:fixed;left:-1000px';document.body.append(holder);
+    const viewer=new StructureViewer(holder),state={sizeUm:1000,resolution:8,cells:Array.from({length:64},()=>[]),substrate:null};
+    viewer.update(state,[],4);
+    const result={far:viewer.camera.far,distance:viewer.camera.position.distanceTo(viewer.controls.target)};
+    viewer.resizeObserver.disconnect();viewer.renderer.dispose();holder.remove();return result;
+  });
+  assert.ok(camera.far>camera.distance+1000,'large local areas must remain inside the 3D camera range');
+  await page.locator('[data-view="structure"]').click();
+  await page.locator('#view-perspective').click();
+  await page.screenshot({path:'artifacts/large-area.png'});
+
+  const full=createProject('blank');for(let i=0;i<149;i++)full.steps.push(step('clean'));
+  await page.locator('#project-file').setInputFiles({name:'full.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(full))});
+  await page.locator('#confirm-ok').click();
+  await page.locator('[data-add="clean"]').click();
+  assert.match(await page.locator('#toast').innerText(),/1–150/);
+  await page.locator('[data-panel="params"]').click();
+  await page.locator('#params-panel [data-action="duplicate"]').click();
+  assert.equal((await saved()).steps.length,150);
+  assert.equal(await page.locator('.recipe-card.current').getAttribute('data-index'),'149');
   assert.deepEqual(external,[],'the app must not transmit project data or request remote assets');
   assert.deepEqual(errors,[],'no browser errors');
   console.log('Browser checks passed: WebGL, process editing/replay, templates, materials, local persistence, JSON/CSV, mobile layout.');

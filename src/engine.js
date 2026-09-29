@@ -100,7 +100,14 @@ export function simulate(project,through=project.steps.length-1) {
         warn('RESIST_CALIBRATION','胶厚直接采用卡片输入；旋涂转速尚未通过该牌号曲线换算。',s,index,'info');
       } else if(s.type==='bake') {
         if(!state.activeResist)throw Error('烘烤卡片需要当前胶层。');
-        if(state.activeResist.exposed&&!state.activeResist.developed)state.activeResist.postBaked=true;
+        if(p.durationS<=0)throw Error('烘烤时间必须大于 0 s；不执行时请禁用该步骤。');
+        const postExposure=state.activeResist.exposed&&!state.activeResist.developed;
+        if(state.activeResist.material==='NR9-3000PY'&&!state.activeResist.developed) {
+          const substrate=state.substrate.material,referenceTime=substrate==='glass'?210:60,referenceTemperature=postExposure?100:150;
+          if(substrate==='sapphire'||p.temperatureC!==referenceTemperature||p.durationS!==referenceTime)
+            warn(postExposure?'NR9_PEB_UNVERIFIED':'NR9_SOFTBAKE_UNVERIFIED',`NR9-3000PY ${postExposure?'曝光后烘烤':'软烘'}尚未按当前衬底校准；厂商参考为 ${referenceTemperature} °C / 60 s（玻璃约需 3.5 倍时间）。后续几何仅为假设。`,s,index);
+        }
+        if(postExposure)state.activeResist.postBaked=true;
         else state.activeResist.baked=true;
       } else if(s.type==='expose') {
         if(!state.activeResist)throw Error('曝光前需要涂胶。');
@@ -111,11 +118,11 @@ export function simulate(project,through=project.steps.length-1) {
         let openingCount=0;
         state.cells.forEach((c,i)=>{
           const pos=cellPosition(i,state),opening=inPattern(pos.x,pos.y,p),layer=c.find(l=>l.stepId===state.activeResist.id);
-          if(layer) {layer.exposed=pr.tone==='positive'?opening:!opening;if(opening)openingCount++;}
+          if(layer) {layer.exposed=Boolean(layer.exposed||(pr.tone==='positive'?opening:!opening));if(opening)openingCount++;}
         });
         if(openingCount===0)warn('EMPTY_MASK','开口未覆盖采样中心；请检查偏移、尺寸或提高采样分辨率。',s,index);
         if(Math.min(p.widthUm,p.lengthUm)<2*state.sizeUm/state.resolution)warn('SUBGRID','特征宽度小于两列采样间距，几何结果不可靠。',s,index);
-        state.activeResist.exposed=true;state.exposure={...p};
+        state.activeResist.exposed=true;state.activeResist.postBaked=false;state.exposure={...p};
       } else if(s.type==='develop') {
         if(!state.activeResist?.exposed)throw Error('显影前需要完成曝光。');
         const pr=getMaterial(project.materials,state.activeResist.material);

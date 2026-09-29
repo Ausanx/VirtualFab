@@ -37,6 +37,43 @@ test('NR9 requires post-exposure bake before development', () => {
   assert.equal(simulate(p).stoppedAt,null);
 });
 
+test('a zero-duration bake cannot satisfy NR9 post-exposure baking', () => {
+  const p=project([substrate(),step('coat'),step('bake',{temperatureC:150}),step('expose'),step('bake',{temperatureC:25,durationS:0}),step('develop')]);
+  assert.equal(simulate(p).stoppedAt,4);
+  p.steps[4].params.durationS=1;
+  const unverified=simulate(p);
+  assert.equal(unverified.stoppedAt,null);
+  assert.ok(unverified.diagnostics.some(d=>d.code==='NR9_PEB_UNVERIFIED'));
+  p.steps[4].params={temperatureC:100,durationS:60};
+  assert.ok(!simulate(p).diagnostics.some(d=>d.code==='NR9_PEB_UNVERIFIED'));
+  p.steps[4].params.durationS=120;
+  assert.ok(simulate(p).diagnostics.some(d=>d.code==='NR9_PEB_UNVERIFIED'));
+  p.steps[4].params.durationS=60;
+  p.steps.splice(5,0,step('expose'));
+  assert.equal(simulate(p).stoppedAt,6,'a new exposure requires a subsequent post-exposure bake');
+});
+
+test('NR9 bake reference conditions account for glass substrates', () => {
+  const p=project([step('substrate',{material:'glass',oxideNm:0}),step('coat'),step('bake',{temperatureC:150,durationS:60}),step('expose'),step('bake',{temperatureC:100,durationS:60}),step('develop')]);
+  const warnings=simulate(p).diagnostics.map(d=>d.code);
+  assert.ok(warnings.includes('NR9_SOFTBAKE_UNVERIFIED'));
+  assert.ok(warnings.includes('NR9_PEB_UNVERIFIED'));
+  p.steps[2].params.durationS=210;p.steps[4].params.durationS=210;
+  const calibrated=simulate(p).diagnostics.map(d=>d.code);
+  assert.ok(!calibrated.includes('NR9_SOFTBAKE_UNVERIFIED'));
+  assert.ok(!calibrated.includes('NR9_PEB_UNVERIFIED'));
+});
+
+test('successive exposures accumulate on the same resist layer', () => {
+  const exposures=[step('expose',{pattern:'rect',widthUm:4,lengthUm:4,offsetXUm:-10}),step('expose',{pattern:'rect',widthUm:4,lengthUm:4,offsetXUm:10})];
+  const positive=project([substrate(),step('coat',{material:'S1813'}),step('bake'),...exposures,step('develop')]);
+  const positiveState=simulate(positive);
+  assert.equal(positiveState.stoppedAt,null);
+  assert.equal(positiveState.cells.filter(c=>!c.some(l=>l.material==='S1813')).length,32);
+  const negative=project([substrate(),step('coat'),step('bake'),...exposures,step('bake',{temperatureC:100}),step('develop')]);
+  assert.equal(simulate(negative).cells.filter(c=>!c.some(l=>l.material==='NR9-3000PY')).length,0);
+});
+
 test('AZ 5214E uses positive mode until image-reversal steps are modeled', () => {
   const az=materials.find(m=>m.id==='AZ5214E');
   assert.equal(az.tone,'positive');

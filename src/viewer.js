@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { getMaterial } from './materials.js';
+import { evidenceNames,getMaterial } from './materials.js';
 import { cellPosition } from './engine.js';
 
 export const escapeHtml = x => String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -23,6 +23,7 @@ export class StructureViewer {
   render(){this.renderer.render(this.scene,this.camera);}
   clear(){this.group.traverse(o=>{o.geometry?.dispose();if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material?.dispose();});this.group.clear();}
   update(state,materials,sliceIndex) {
+    const previousSize=this.state?.sizeUm;
     this.state=state;this.materials=materials;this.sliceIndex=sliceIndex;this.clear();
     const maxZ=Math.max(1,...state.cells.map(c=>c.at(-1)?.z1||0));
     this.gain=Math.min(80,8000/maxZ);const sz=this.gain/1000;
@@ -67,12 +68,13 @@ export class StructureViewer {
       this.group.add(new THREE.Line(lineGeo,new THREE.LineBasicMaterial({color:'#0b747b'})));
     }
     this.frameY=(displayZ(maxZ)+displayZ(minZ))*.5;
-    if(!this.framed){this.camera.position.y+=this.frameY-1;this.controls.target.y=this.frameY;this.framed=true;}
-    this.render();
+    if(!this.framed||previousSize!==state.sizeUm){this.framed=true;this.setView('perspective');}
+    else this.render();
     return {gain:this.gain,minZ,maxZ};
   }
   setView(type) {
     const size=this.wafer?40:(this.state?.sizeUm||40),d=size*1.62,targetY=this.wafer?0:(this.frameY||0);
+    this.camera.far=Math.max(2000,d*3);this.camera.updateProjectionMatrix();
     if(type==='top')this.camera.position.set(0,targetY+d*1.25,.01);
     else if(type==='front')this.camera.position.set(0,targetY+d*.1,d*1.35);
     else this.camera.position.set(d*.9,targetY+d*.8,d);
@@ -108,9 +110,10 @@ export function drawBands(container,state,materials) {
     const m=getMaterial(materials,id),cx=x+(i+.5)*w/ids.length,bw=Math.min(78,w/ids.length-18);xt.push({pos:cx,label:id});
     if(m.category==='semiconductor'&&m.affinity.value!==null&&m.bandGap.value!==null){
       const ec=-m.affinity.value,ev=ec-m.bandGap.value;
-      content+=`<rect x="${cx-bw/2}" y="${py(ec)}" width="${bw}" height="${py(ev)-py(ec)}" fill="${m.color}" opacity=".12"/><path d="M${cx-bw/2} ${py(ec)}h${bw} M${cx-bw/2} ${py(ev)}h${bw}" stroke="${m.color}" stroke-width="2"/><text class="plot-text" x="${cx}" y="${py(ec)-6}" text-anchor="middle">E꜀ ${number(ec)}</text><text class="plot-text" x="${cx}" y="${py(ev)+13}" text-anchor="middle">Eᵥ ${number(ev)}</text><text class="plot-text" x="${cx}" y="${py(ev)+27}" text-anchor="middle">${m.bandGap.evidence==='estimated'||m.affinity.evidence==='estimated'?'估算':'有来源参数'}</text>`;
+      const evidence=m.bandGap.evidence==='estimated'||m.affinity.evidence==='estimated'?'含估算参数':m.bandGap.evidence==='derived'||m.affinity.evidence==='derived'?'含推导参数':'实测参数';
+      content+=`<rect x="${cx-bw/2}" y="${py(ec)}" width="${bw}" height="${py(ev)-py(ec)}" fill="${m.color}" opacity=".12"/><path d="M${cx-bw/2} ${py(ec)}h${bw} M${cx-bw/2} ${py(ev)}h${bw}" stroke="${m.color}" stroke-width="2"/><text class="plot-text" x="${cx}" y="${py(ec)-6}" text-anchor="middle">E꜀ ${number(ec)}</text><text class="plot-text" x="${cx}" y="${py(ev)+13}" text-anchor="middle">Eᵥ ${number(ev)}</text><text class="plot-text" x="${cx}" y="${py(ev)+27}" text-anchor="middle">${evidence}</text>`;
     } else if(['conductor','tco','semimetal'].includes(m.category)&&m.workFunction.value!==null){
-      const ef=-m.workFunction.value;content+=`<path d="M${cx-bw/2} ${py(ef)}h${bw}" stroke="${m.color}" stroke-width="2" stroke-dasharray="5 3"/><text class="plot-text" x="${cx}" y="${py(ef)-8}" text-anchor="middle">Eꜰ ${number(ef)}</text><text class="plot-text" x="${cx}" y="${py(ef)+16}" text-anchor="middle">功函数 ${m.workFunction.evidence==='estimated'?'估算':'参考'}</text>`;
+      const ef=-m.workFunction.value;content+=`<path d="M${cx-bw/2} ${py(ef)}h${bw}" stroke="${m.color}" stroke-width="2" stroke-dasharray="5 3"/><text class="plot-text" x="${cx}" y="${py(ef)-8}" text-anchor="middle">Eꜰ ${number(ef)}</text><text class="plot-text" x="${cx}" y="${py(ef)+16}" text-anchor="middle">功函数 ${evidenceNames[m.workFunction.evidence]}</text>`;
     } else content+=`<rect x="${cx-bw/2}" y="${y+45}" width="${bw}" height="85" fill="none" stroke="#718291" stroke-dasharray="3 5"/><text class="plot-text" x="${cx}" y="${y+88}" text-anchor="middle">带边缺失</text>`;
   });
   const yt=[0,-2,-4,-6,-8,-10].map(e=>({pos:py(e),label:e}));
