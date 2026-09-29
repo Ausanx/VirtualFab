@@ -74,6 +74,25 @@ try {
   assert.equal((await saved()).steps[3].params.thicknessNm,2400);
   await clickStep(5);
   assert.match(await page.locator('.inspector-title').innerText(),/曝光/);
+  const maskPixels=()=>page.evaluate(()=>['mask-target','mask-result'].map(id=>{
+    const canvas=document.getElementById(id),pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+    return Array.from({length:canvas.width*canvas.height},(_,i)=>[...pixels.slice(i*4,i*4+4)].join(','));
+  }));
+  const [target,anticipated]=await maskPixels();
+  assert.equal(new Set(target).size,2,'mask preview must show sampled open and covered cells');
+  assert.ok(target.every(pixel=>pixel.endsWith(',255')),'mask preview canvas must be opaque');
+  assert.deepEqual(anticipated,target,'negative resist preview must reverse exposure into intended openings');
+  await page.screenshot({path:'artifacts/mask-exposure.png'});
+  await clickStep(7);
+  const [lastTarget,developed]=await maskPixels();
+  assert.deepEqual(lastTarget,target);
+  assert.deepEqual(developed,target,'developed openings must match the sampled mask');
+  await page.setViewportSize({width:390,height:844});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'mobile mask preview must not overflow');
+  assert.ok(await page.locator('#mask-target').isVisible());
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#toast')).opacity==='0');
+  await page.screenshot({path:'artifacts/mobile-mask.png',fullPage:true});
+  await page.setViewportSize({width:1440,height:1000});
   await clickStep(9);
   assert.doesNotMatch(await page.locator('#layer-legend').innerText(),/NR9-3000PY/);
 

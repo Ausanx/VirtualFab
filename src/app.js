@@ -36,9 +36,26 @@ function fieldHtml(key,value,s){
   if(typeof value==='boolean')return `<label class="check-label"><input type="checkbox" name="${key}"${value?' checked':''}>${esc(fields[key]||key)}</label>`;
   return `<label>${esc(fields[key]||key)}${choices?`<select name="${key}">${options(choices,value)}</select>`:`<input name="${key}" type="${typeof value==='number'?'number':'text'}" ${typeof value==='number'?'step="any"':''} value="${esc(value)}"${key==='rateSource'?'':' required'} maxlength="2000">`}</label>`;
 }
+function maskPreviewHtml(s){
+  if(!['expose','develop'].includes(s.type)||state.completed<selected||!state.activeResist||!state.lastPattern)return '';
+  if(s.type==='expose'&&state.lastPattern.stepId!==s.id)return '';
+  const developed=s.type==='develop';
+  return `<section class="mask-preview" aria-label="掩膜采样预览"><div class="mask-preview-heading"><strong>开口预览</strong><span>采样间距 ${(project.sizeUm/project.resolution).toFixed(2)} μm</span></div><div class="mask-preview-grid"><figure><canvas id="mask-target" width="${project.resolution}" height="${project.resolution}" role="img" aria-label="最近一次目标开口"></canvas><figcaption>${developed?'最近一次':'本次'}目标开口</figcaption></figure><figure><canvas id="mask-result" width="${project.resolution}" height="${project.resolution}" role="img" aria-label="${developed?'显影实际开口':'累计预计开口'}"></canvas><figcaption>${developed?'显影实际开口':'累计预计开口'}</figcaption></figure></div><p>蓝色为开口 · 理想几何采样，不预测光学成像</p></section>`;
+}
+function drawMaskPreview(){
+  const target=$('#mask-target');if(!target)return;
+  const resist=state.activeResist,tone=getMaterial(project.materials,resist.material).tone;
+  const result=state.cells.map(c=>{const layer=c.find(l=>l.stepId===resist.id);return resist.developed?!layer:(tone==='positive'?Boolean(layer?.exposed):!layer?.exposed);});
+  for(const [canvas,pixels]of [[target,state.lastPattern.openings],[$('#mask-result'),result]]){
+    const image=canvas.getContext('2d').createImageData(canvas.width,canvas.height);
+    pixels.forEach((open,i)=>{const at=i*4,color=open?[47,127,174]:[227,232,238];image.data.set([...color,255],at);});
+    canvas.getContext('2d').putImageData(image,0,0);
+  }
+}
 function renderParams(){
   const s=project.steps[selected];if(!s){$('#params-panel').innerHTML='<p class="empty-message">从左侧添加工艺卡片，或选择已有步骤。</p>';return;}
-  $('#params-panel').innerHTML=`<div class="step-tag"><span>${String(selected+1).padStart(2,'0')}</span><span>/</span><span>${processTypes[s.type].short}</span><span class="badge">${s.enabled?'已启用':'已禁用'}</span></div><h2 class="inspector-title">${esc(processTypes[s.type].label)}</h2><details class="step-description"><summary>工艺模型说明</summary><p>${esc(descriptions[s.type])}</p></details><form id="param-form" class="param-form"><label>步骤名称<input name="stepName" value="${esc(s.name)}" maxlength="120" required></label>${Object.entries(s.params).filter(([k])=>k in processTypes[s.type].defaults).map(([k,v])=>fieldHtml(k,v,s)).join('')}<label class="check-label"><input name="stepEnabled" type="checkbox"${s.enabled?' checked':''}>启用此步骤</label><button type="submit" class="primary">应用参数并重算</button></form><hr class="section-line"><div class="card-actions"><button data-action="up"${selected===0?' disabled':''}>↑ 前移</button><button data-action="down"${selected===project.steps.length-1?' disabled':''}>↓ 后移</button><button data-action="duplicate">复制步骤</button><button data-action="delete" class="remove"${project.steps.length<=1?' disabled':''}>删除步骤</button></div>`;
+  $('#params-panel').innerHTML=`<div class="step-tag"><span>${String(selected+1).padStart(2,'0')}</span><span>/</span><span>${processTypes[s.type].short}</span><span class="badge">${s.enabled?'已启用':'已禁用'}</span></div><h2 class="inspector-title">${esc(processTypes[s.type].label)}</h2><details class="step-description"><summary>工艺模型说明</summary><p>${esc(descriptions[s.type])}</p></details>${maskPreviewHtml(s)}<form id="param-form" class="param-form"><label>步骤名称<input name="stepName" value="${esc(s.name)}" maxlength="120" required></label>${Object.entries(s.params).filter(([k])=>k in processTypes[s.type].defaults).map(([k,v])=>fieldHtml(k,v,s)).join('')}<label class="check-label"><input name="stepEnabled" type="checkbox"${s.enabled?' checked':''}>启用此步骤</label><button type="submit" class="primary">应用参数并重算</button></form><hr class="section-line"><div class="card-actions"><button data-action="up"${selected===0?' disabled':''}>↑ 前移</button><button data-action="down"${selected===project.steps.length-1?' disabled':''}>↓ 后移</button><button data-action="duplicate">复制步骤</button><button data-action="delete" class="remove"${project.steps.length<=1?' disabled':''}>删除步骤</button></div>`;
+  drawMaskPreview();
   $('#param-form').addEventListener('submit',e=>{
     e.preventDefault();stop();const next=structuredClone(project),target=next.steps[selected],data=new FormData(e.target);
     target.name=String(data.get('stepName')).trim();target.enabled=data.has('stepEnabled');

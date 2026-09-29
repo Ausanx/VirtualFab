@@ -70,7 +70,7 @@ export function cellPosition(index,state) {
 }
 export function simulate(project,through=project.steps.length-1) {
   validateProject(project);
-  const state={sizeUm:project.sizeUm,resolution:project.resolution,cells:Array.from({length:project.resolution**2},()=>[]),diagnostics:[],substrate:null,activeResist:null,exposure:null,completed:-1,stoppedAt:null};
+  const state={sizeUm:project.sizeUm,resolution:project.resolution,cells:Array.from({length:project.resolution**2},()=>[]),diagnostics:[],substrate:null,activeResist:null,exposure:null,lastPattern:null,completed:-1,stoppedAt:null};
   function warn(code,message,s,index,severity='warning') { state.diagnostics.push({code,message,stepId:s.id,index,severity}); }
   for(let index=0;index<=Math.min(through,project.steps.length-1);index++) {
     const s=project.steps[index],p=s.params,m=getMaterial(project.materials,p.material);
@@ -96,6 +96,7 @@ export function simulate(project,through=project.steps.length-1) {
         if(m.category!=='resist')throw Error('涂胶步骤必须选择光刻胶材料。');
         if(state.activeResist)throw Error('已有胶层；首版需先去胶，再进行下一轮光刻。');
         state.activeResist={id:s.id,material:m.id,baked:false,exposed:false,postBaked:false,developed:false,nonDirectionalDeposit:false};
+        state.lastPattern=null;
         state.cells.forEach(c=>{const top=c.at(-1)?.z1||0;c.push({material:m.id,z0:top,z1:top+p.thicknessNm,stepId:s.id,role:'resist',doping:'unknown'});});
         warn('RESIST_CALIBRATION','胶厚直接采用卡片输入；旋涂转速尚未通过该牌号曲线换算。',s,index,'info');
       } else if(s.type==='bake') {
@@ -115,14 +116,16 @@ export function simulate(project,through=project.steps.length-1) {
         if(state.activeResist.developed)throw Error('此胶层已显影，请重新涂胶。');
         const pr=getMaterial(project.materials,state.activeResist.material);
         if(pr.id==='AZ5214E'&&pr.tone==='negative')throw Error('AZ 5214E 的反转模式需要反转烘烤和泛曝光；当前模型仅支持正胶模式。');
+        const openings=new Uint8Array(state.cells.length);
         let openingCount=0;
         state.cells.forEach((c,i)=>{
           const pos=cellPosition(i,state),opening=inPattern(pos.x,pos.y,p),layer=c.find(l=>l.stepId===state.activeResist.id);
+          openings[i]=Number(opening);
           if(layer) {layer.exposed=Boolean(layer.exposed||(pr.tone==='positive'?opening:!opening));if(opening)openingCount++;}
         });
         if(openingCount===0)warn('EMPTY_MASK','开口未覆盖采样中心；请检查偏移、尺寸或提高采样分辨率。',s,index);
         if(Math.min(p.widthUm,p.lengthUm)<2*state.sizeUm/state.resolution)warn('SUBGRID','特征宽度小于两列采样间距，几何结果不可靠。',s,index);
-        state.activeResist.exposed=true;state.activeResist.postBaked=false;state.exposure={...p};
+        state.activeResist.exposed=true;state.activeResist.postBaked=false;state.exposure={...p};state.lastPattern={stepId:s.id,openings};
       } else if(s.type==='develop') {
         if(!state.activeResist?.exposed)throw Error('显影前需要完成曝光。');
         const pr=getMaterial(project.materials,state.activeResist.material);
@@ -175,7 +178,7 @@ export function simulate(project,through=project.steps.length-1) {
           if(s.type==='strip'&&at<c.length-1)throw Error('胶上仍有覆盖层，请使用 lift-off 并检查剥离可达性。');
           return c.slice(0,at);
         });
-        state.activeResist=null;state.exposure=null;
+        state.activeResist=null;state.exposure=null;state.lastPattern=null;
       } else if(s.type==='anneal') {
         if(state.activeResist)warn('RESIST_HEAT','当前仍有胶层；需要核对该牌号热预算。',s,index);
         warn('ANNEAL_NOT_CALIBRATED','已记录退火历史；没有标定关系时，不自动更改缺陷、掺杂或接触电阻。',s,index,'info');

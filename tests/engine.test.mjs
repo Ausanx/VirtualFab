@@ -30,6 +30,24 @@ test('negative resist exposure reverses the optical mask to obtain the requested
   assert.equal(simulate(p).cells.filter(c=>!c.some(l=>l.material==='NR9-3000PY')).length,64);
 });
 
+test('sampled target openings match developed geometry for both resist tones, inversion and subgrid features', () => {
+  for(const [material,mask,expected] of [
+    ['S1813',{pattern:'rect',widthUm:8,lengthUm:8},64],
+    ['NR9-3000PY',{pattern:'rect',widthUm:8,lengthUm:8},64],
+    ['S1813',{pattern:'rect',widthUm:8,lengthUm:8,invert:true},1536],
+    ['S1813',{pattern:'rect',widthUm:.2,lengthUm:.2},0],
+  ]) {
+    const coat=step('coat',{material}),expose=step('expose',mask);
+    const p=project([substrate(),coat,step('bake'),expose,...(material==='NR9-3000PY'?[step('bake',{temperatureC:100})]:[]),step('develop')]);
+    const before=simulate(p,3),after=simulate(p);
+    const sampled=[...before.lastPattern.openings],actual=after.cells.map(c=>Number(!c.some(l=>l.stepId===coat.id)));
+    assert.equal(sampled.reduce((a,b)=>a+b,0),expected);
+    assert.deepEqual([...after.lastPattern.openings],sampled);
+    assert.deepEqual(actual,sampled);
+    if(expected===0)assert.ok(before.diagnostics.some(d=>d.code==='SUBGRID'));
+  }
+});
+
 test('NR9 requires post-exposure bake before development', () => {
   const p=project([substrate(),step('coat'),step('bake',{temperatureC:150}),step('expose'),step('develop')]);
   assert.equal(simulate(p).stoppedAt,4);
@@ -70,8 +88,10 @@ test('successive exposures accumulate on the same resist layer', () => {
   const positiveState=simulate(positive);
   assert.equal(positiveState.stoppedAt,null);
   assert.equal(positiveState.cells.filter(c=>!c.some(l=>l.material==='S1813')).length,32);
+  assert.equal([...positiveState.lastPattern.openings].reduce((a,b)=>a+b,0),16,'last mask remains distinct from cumulative positive exposure');
   const negative=project([substrate(),step('coat'),step('bake'),...exposures,step('bake',{temperatureC:100}),step('develop')]);
   assert.equal(simulate(negative).cells.filter(c=>!c.some(l=>l.material==='NR9-3000PY')).length,0);
+  assert.equal([...simulate(negative).lastPattern.openings].reduce((a,b)=>a+b,0),16,'last mask remains distinct from cumulative negative exposure');
 });
 
 test('AZ 5214E uses positive mode until image-reversal steps are modeled', () => {

@@ -26,6 +26,11 @@ try {
   const type=await page.locator('#workspace-title').evaluate(element=>({size:getComputedStyle(element).fontSize,spacing:getComputedStyle(element).letterSpacing}));
   assert.ok(parseFloat(type.size)>=14&&parseFloat(type.size)<=16);
   assert.ok(['normal','0px'].includes(type.spacing));
+  await page.locator('.recipe-card[data-index="5"]').click();
+  assert.equal(await page.locator('#mask-target').evaluate(canvas=>{
+    const data=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+    return new Set(Array.from({length:canvas.width*canvas.height},(_,i)=>data[i*4])).size;
+  }),2,'packaged exposure preview must render open and covered cells');
   await page.locator('#template').selectOption('backgate');
   await page.locator('#load-template').click();
   await page.locator('#confirm-ok').click();
@@ -56,5 +61,5 @@ try {
   assert.equal(await second.page.locator('#project-name').inputValue(),'桌面导入验收');
   assert.equal(await second.page.locator('#template').inputValue(),'backgate');
   assert.ok((await second.page.locator('#results-panel').innerText()).includes('底栅 FET'));
-  console.log(`Desktop ${packaged?'packaged':'development'} checks passed: local protocol, WebGL, typography, JSON import/export and project recovery after restart.`);
+  console.log(`Desktop ${packaged?'packaged':'development'} checks passed: local protocol, WebGL, mask preview, typography, JSON import/export and project recovery after restart.`);
 } finally {await second.app.close();}
