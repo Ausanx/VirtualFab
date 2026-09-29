@@ -27,7 +27,28 @@
     <div id="library-resize" class="panel-gutter" role="separator" tabindex="0" aria-orientation="vertical" aria-label="调整工艺资源宽度" title="拖动或使用左右方向键调整工艺资源宽度"></div>
     <section class="workspace">
       <div class="workspace-heading"><div><h1 id="workspace-title">工艺编辑器</h1></div><div class="workspace-actions"><button id="grid-settings" title="局部区域与网格精度">网格设置</button><button id="run-all" class="primary">▶ 运行至末步</button></div></div>
-      <div class="view-tabs" role="tablist" aria-label="工作视图"><button role="tab" aria-selected="true" data-view="structure">结构视图</button><button role="tab" aria-selected="false" data-view="bands">能带与界面</button><button role="tab" aria-selected="false" data-view="electrical">电学模型</button><span id="model-label">局部区域 · 40 × 40 μm</span></div>
+      <div class="view-tabs" role="tablist" aria-label="工作视图"><button role="tab" aria-selected="true" data-view="structure">结构视图</button><button role="tab" aria-selected="false" data-view="bands">能带与界面</button><button role="tab" aria-selected="false" data-view="electrical">电学模型</button><button role="tab" aria-selected="false" data-view="atomic">原子计算</button><span id="model-label">局部区域 · 40 × 40 μm</span></div>
+      <div id="atomic-view" class="main-view analysis-view" hidden>
+        <div class="atomic-toolbar"><label>原型<select id="atomic-template"><option value="Si">Si 金刚石</option><option value="MoS2">MoS₂ 单层 1H</option></select></label><button id="atomic-load">载入原型</button><label>导入周期<select id="atomic-dimensionality"><option value="3">三维周期</option><option value="2">二维薄层</option></select></label><button id="atomic-import">导入结构</button><button id="atomic-probe" title="检查本地 QE、ASE 和赝势">检查后端</button></div>
+        <div id="atomic-backend" role="status">后端尚未检查</div>
+        <div class="atomic-structure-heading"><strong id="atomic-name"></strong><span id="atomic-size"></span><button id="atomic-fit" title="恢复晶胞视角" aria-label="恢复晶胞视角">⛶</button></div>
+        <div id="atomic-scene" aria-label="原子晶胞三维视图"></div>
+        <details id="atomic-coordinates"><summary>晶胞与原子坐标 · Å</summary><label>结构 JSON<textarea id="atomic-structure-json" spellcheck="false" rows="9" aria-label="原子结构 JSON"></textarea></label><button id="atomic-apply-structure">应用坐标</button><div id="atomic-structure-error" role="status"></div></details>
+        <details id="atomic-settings" open><summary>计算参数与扫描</summary><form id="atomic-form" class="physics-form">
+          <label>波函数截断 (Ry)<input name="ecutwfcRy" type="number" min="20" max="160" step="any" required></label><label>电荷密度截断 (Ry)<input name="ecutrhoRy" type="number" min="160" max="1600" step="any" required></label>
+          <label>电荷密度 k 网格 n<input name="kDensity" type="number" min="2" max="18" step="1" required></label><label>能带采样 k 网格 n<input name="kSampling" type="number" min="4" max="24" step="1" required></label>
+          <label>SCF 容差 (Ry)<input name="convThrRy" type="number" min="1e-12" max="1e-5" step="any" required></label><label>截断扫描增量 (Ry)<input name="cutoffStepRy" type="number" min="5" max="40" step="any" required></label>
+          <label>k 网格扫描增量<input name="kStep" type="number" min="2" max="8" step="1" required></label><label>二维真空扫描增量 (Å)<input name="vacuumStepAngstrom" type="number" min="2" max="15" step="any" required></label>
+          <label>总能量差容差 (meV/原子)<input name="energyToleranceMevAtom" type="number" min="0.01" max="100" step="any" required></label><label>采样带隙差容差 (eV)<input name="gapToleranceEv" type="number" min="0.001" max="1" step="any" required></label>
+          <label>OpenMP 线程<input name="threads" type="number" min="1" max="4" step="1" required></label><label>每阶段时限 (s)<input name="maxSeconds" type="number" min="10" max="14400" step="1" required></label>
+        </form><p class="view-note">PBE · USPP · 非磁性 · 中性 · 固定占据 · 固定原子 · 无 SOC。三维 n×n×n，二维 n×n×1；零偏移网格。每个扫描只改变一类参数。</p></details>
+        <div class="physics-actions"><button id="atomic-run" class="primary" form="atomic-form" type="submit">运行与检查</button><button id="atomic-cancel" disabled>取消计算</button><button id="atomic-resume" disabled>恢复任务</button></div>
+        <div id="atomic-status" role="status">尚未计算</div>
+        <div class="atomic-jobbar"><label>项目任务<select id="atomic-jobs" aria-label="DFT 任务"><option value="">尚无任务</option></select></label><button id="atomic-reveal" disabled>原始文件</button></div>
+        <div id="atomic-binding" role="status"></div><div id="atomic-result"></div><div id="atomic-band-plot"></div>
+        <details id="atomic-log"><summary>计算日志</summary><pre id="atomic-log-text"></pre></details>
+        <details id="atomic-provenance"><summary>输入快照与结果来源</summary><pre id="atomic-provenance-text"></pre></details>
+      </div>
       <div id="structure-view" class="main-view">
         <div class="viewport-toolbar"><span><i class="live-dot"></i>三维局部结构</span><div><button id="view-perspective" aria-label="恢复透视视角">透视</button><button id="view-top">俯视</button><button id="view-front">正视</button><button id="explode" aria-pressed="false">展开层</button><button id="wafer-view" aria-pressed="false">晶圆</button></div></div>
         <div id="three-view"><div class="viewport-loading">正在加载结构视窗…</div></div>
@@ -55,7 +76,7 @@
       <section class="slice-panel"><div class="slice-heading"><strong>截面 A—A′</strong><label>Y = <output id="slice-value">0</output> μm <input type="range" id="slice-range" min="0" max="39" value="20" aria-label="剖面位置"></label><span>横向 μm · 厚度 nm</span></div><div id="slice-plot"></div></section>
     </section>
     <div id="inspector-resize" class="panel-gutter" role="separator" tabindex="0" aria-orientation="vertical" aria-label="调整工艺参数宽度" title="拖动或使用左右方向键调整工艺参数宽度"></div>
-    <aside class="inspector"><div class="inspector-tabs" role="tablist" aria-label="检查面板"><button role="tab" data-panel="params" aria-selected="true">工艺参数</button><button role="tab" data-panel="results" aria-selected="false">结构诊断 <span id="diagnostic-count"></span></button></div><div id="params-panel"></div><div id="results-panel" hidden></div></aside>
+    <aside class="inspector"><div class="inspector-tabs" role="tablist" aria-label="检查面板"><button role="tab" data-panel="params" aria-selected="true">工艺参数</button><button role="tab" data-panel="results" aria-selected="false">结构诊断 <span id="diagnostic-count"></span></button></div><div id="params-panel"></div><div id="results-panel" hidden></div><div id="atomic-inspector" hidden><div class="panel-heading">原子模型</div><div id="atomic-model-info" class="inspector-content"></div></div></aside>
     <section class="timeline"><div class="timeline-heading"><div><strong>工艺流程</strong><span id="step-counter"></span></div><div class="playback"><button id="first-step" aria-label="回到空白状态">|◀</button><button id="previous-step" aria-label="上一步">◀</button><button id="play" aria-label="播放工艺">▶</button><button id="next-step" aria-label="下一步">▶|</button><span id="elapsed"></span></div></div><div id="recipe-cards" aria-label="工艺步骤"></div><div class="timeline-footer"><span id="simulation-status"></span></div></section>
   </main>
   <dialog id="materials-dialog"><div class="dialog-heading"><div><small>MATERIAL LIBRARY</small><h2>本地材料库</h2></div><button id="close-materials" aria-label="关闭材料库">✕</button></div><div class="material-toolbar"><input id="material-search" placeholder="搜索名称、类别或牌号…" aria-label="搜索材料"><button id="new-material" class="primary">＋ 自定义材料</button></div><div class="material-dialog-body"><div id="material-list"></div><div id="material-detail"></div></div></dialog>

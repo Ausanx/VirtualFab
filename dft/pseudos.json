@@ -1,0 +1,5 @@
+{
+  "Si": {"file": "Si.pbe-n-rrkjus_psl.1.0.0.UPF", "url": "https://pseudopotentials.quantum-espresso.org/upf_files/Si.pbe-n-rrkjus_psl.1.0.0.UPF", "sha256": "669fb75395a9d26973b0ea1ce8223bbcb30d3396c5d48bf5e794d1243c52375a"},
+  "Mo": {"file": "Mo.pbe-spn-rrkjus_psl.1.0.0.UPF", "url": "https://pseudopotentials.quantum-espresso.org/upf_files/Mo.pbe-spn-rrkjus_psl.1.0.0.UPF", "sha256": "0d7c57996e624698242e6428a34d5f13a1e52b4cddac2ce215be4dce429073dd"},
+  "S": {"file": "S.pbe-n-rrkjus_psl.1.0.0.UPF", "url": "https://pseudopotentials.quantum-espresso.org/upf_files/S.pbe-n-rrkjus_psl.1.0.0.UPF", "sha256": "90fb585e830674f2de7b4cbace28d5dd0c05ca1a919d1f92a59b54d6b95cbfc4"}
+}

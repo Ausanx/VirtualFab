@@ -6,6 +6,7 @@ import { interfaceKey,profilesFor } from './interfaces.js';
 import { equilibriumDefaults,validateEquilibrium } from './equilibrium.js';
 import { StructureViewer,drawSlice,drawBands,drawInterfaceBands,drawEquilibrium,drawCurve,escapeHtml as esc } from './viewer.js';
 import SplitGrid from 'split-grid';
+import { AtomicUI } from './atomic-ui.js';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const STORAGE='virtualfab.project.v1',LIBRARY='virtualfab.materials.v1';
@@ -14,6 +15,7 @@ try{const saved=localStorage.getItem(STORAGE);if(saved){const parsed=JSON.parse(
 let selected=project.steps.length-1,through=selected,sliceIndex=Math.floor(project.resolution/2),state,result,viewer,timer=null,materialId=project.materials[0].id,curveRows=[],confirmAction=null;
 let savedSnapshot=restored?null:JSON.stringify(project),projectFile='';
 let equilibriumResult=null,equilibriumGeneration=0,equilibriumRunning=false;
+let atomicUI;
 function toast(message){$('#toast').textContent=message;$('#toast').classList.add('visible');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('visible'),4500);}
 function hasUnsavedChanges(){return savedSnapshot!==JSON.stringify(project);}
 function updateSaveStatus(){
@@ -187,7 +189,7 @@ function renderEquilibriumResult(){
 function render(){
   const start=performance.now();state=simulate(project,through);result=analyze(state,project.materials,project.interfaceSelections);const elapsed=performance.now()-start;
   $('#project-name').value=project.name;updateSaveStatus();$('#material-count').textContent=`${project.materials.length} 种材料`;
-  $('#model-label').textContent=`局部区域 · ${project.sizeUm} × ${project.sizeUm} μm`;$('#elapsed').textContent=`计算 ${elapsed.toFixed(0)} ms`;
+  $('#model-label').textContent=$('[data-view][aria-selected="true"]').dataset.view==='atomic'?'原子晶胞 · Å':`局部区域 · ${project.sizeUm} × ${project.sizeUm} μm`;$('#elapsed').textContent=`计算 ${elapsed.toFixed(0)} ms`;
   $('#simulation-status').textContent=state.stoppedAt!==null?`步骤 ${state.stoppedAt+1} 停止 · 查看诊断`:'几何计算完成';
   renderCards();renderParams();renderResults();renderViews();
 }
@@ -238,6 +240,7 @@ function activateProject(next,file=''){
   project=next;selected=project.steps.length-1;through=selected;sliceIndex=Math.floor(project.resolution/2);
   projectFile=file;savedSnapshot=JSON.stringify(project);$('#template').value=project.template||'blank';
   invalidateEquilibrium();renderEquilibriumConfig();persist();render();
+  atomicUI?.updateProject();
   if(viewer){viewer.wafer=false;$('#wafer-view').setAttribute('aria-pressed','false');viewer.setView('perspective');renderViews();}
 }
 $('#template').innerHTML=options(templateNames,project.template);
@@ -288,10 +291,16 @@ $('#first-step').onclick=()=>selectStep(-1);$('#previous-step').onclick=()=>sele
 $('#play').onclick=()=>{if(timer){stop();return;}if(through>=project.steps.length-1)selectStep(-1);$('#play').textContent='Ⅱ';$('#play').setAttribute('aria-label','暂停工艺');timer=setInterval(()=>{selectStep(through+1,{playing:true});if(through>=project.steps.length-1||state.stoppedAt!==null)stop();},850);};
 function updateAnalysisLayout(){
   const view=$('[data-view][aria-selected="true"]').dataset.view,equilibrium=$('[data-band-mode][aria-selected="true"]').dataset.bandMode==='equilibrium';
-  $('.slice-panel').hidden=view==='bands'&&equilibrium;
-  $('#workspace-title').textContent=view==='structure'?'工艺编辑器':view==='electrical'?'电学模型':equilibrium?'PN/PIN 平衡':'材料与界面';
+  $('.slice-panel').hidden=view==='atomic'||view==='bands'&&equilibrium;
+  $('#workspace-title').textContent=view==='atomic'?'原子计算':view==='structure'?'工艺编辑器':view==='electrical'?'电学模型':equilibrium?'PN/PIN 平衡':'材料与界面';
+  $('#grid-settings').hidden=view==='atomic';$('#run-all').hidden=view==='atomic';
+  $('#model-label').textContent=view==='atomic'?'原子晶胞 · Å':`局部区域 · ${project.sizeUm} × ${project.sizeUm} μm`;
+  $('.inspector-tabs').hidden=view==='atomic';$('#atomic-inspector').hidden=view!=='atomic';
+  $('.workbench').classList.toggle('atomic-mode',view==='atomic');
+  $('#params-panel').hidden=view==='atomic'||$('[data-panel="params"]').getAttribute('aria-selected')!=='true';
+  $('#results-panel').hidden=view==='atomic'||$('[data-panel="results"]').getAttribute('aria-selected')!=='true';
 }
-$$('[data-view]').forEach(b=>b.onclick=()=>{$$('[data-view]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));for(const view of ['structure','bands','electrical'])$(`#${view}-view`).hidden=view!==b.dataset.view;updateAnalysisLayout();if(b.dataset.view==='structure')requestAnimationFrame(()=>viewer?.resize());});
+$$('[data-view]').forEach(b=>b.onclick=()=>{$$('[data-view]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));for(const view of ['structure','bands','electrical','atomic'])$(`#${view}-view`).hidden=view!==b.dataset.view;updateAnalysisLayout();if(b.dataset.view==='structure')requestAnimationFrame(()=>viewer?.resize());if(b.dataset.view==='atomic')requestAnimationFrame(()=>atomicUI?.show());});
 $$('[data-band-mode]').forEach(b=>b.onclick=()=>{
   $$('[data-band-mode]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));
   $('#material-bands-panel').hidden=b.dataset.bandMode!=='materials';$('#equilibrium-panel').hidden=b.dataset.bandMode!=='equilibrium';
@@ -334,6 +343,7 @@ $('#export-equilibrium').onclick=()=>{
 try{viewer=new StructureViewer($('#three-view'));}catch(error){$('#three-view').innerHTML='<p class="empty-message">WebGL 不可用。剖面、工艺计算与诊断仍可使用。</p>';toast('三维视窗初始化失败：'+error.message);}
 new ResizeObserver(revealCurrentStep).observe($('#recipe-cards'));
 renderLibrary();render();renderEquilibriumConfig();updateCurve();if(restoreError)toast(restoreError);
+atomicUI=new AtomicUI({getProject:()=>project,setConfig:config=>{project.dft=config;persist();},toast});
 new ResizeObserver(()=>drawSlice($('#slice-plot'),state,project.materials,sliceIndex)).observe($('#slice-plot'));
 new ResizeObserver(()=>{if(curveRows.length)drawCurve($('#curve-plot'),curveRows);}).observe($('#curve-plot'));
 new ResizeObserver(()=>{if(equilibriumResult)drawEquilibrium($('#equilibrium-plot'),equilibriumResult,$('#equilibrium-quantity').value);}).observe($('#equilibrium-plot'));

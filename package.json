@@ -8,7 +8,8 @@
     "start": "node server.mjs",
     "desktop": "electron .",
     "build:solver": "powershell -NoProfile -ExecutionPolicy Bypass -File solver/build.ps1",
-    "package:win": "npm run build:solver && electron-packager . VirtualFab --platform=win32 --arch=x64 --out=dist --asar --overwrite --extra-resource=solver-bin/VirtualFabSolver --ignore=solver-bin --ignore=.venv-solver --ignore=artifacts --ignore=docs --ignore=tests --ignore=.git",
+    "build:dft": "powershell -NoProfile -ExecutionPolicy Bypass -File dft/build.ps1",
+    "package:win": "npm run build:solver && npm run build:dft && electron-packager . VirtualFab --platform=win32 --arch=x64 --out=dist --asar --overwrite --extra-resource=solver-bin/VirtualFabSolver --extra-resource=dft-bin/dft --ignore=solver-bin --ignore=dft-bin --ignore=.venv-solver --ignore=artifacts --ignore=docs --ignore=tests --ignore=benchmarks --ignore=__pycache__ --ignore=.git",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node tests/browser.mjs",
     "test:desktop": "node tests/desktop.mjs",
@@ -18,7 +19,12 @@
     "test:literature:desktop": "node tests/literature-desktop.mjs",
     "test:physics:desktop": "node tests/physics-desktop.mjs",
     "validate:physics": "node benchmarks/run-equilibrium.mjs",
-    "check": "node --check desktop.mjs && node --check preload.cjs && node --check server.mjs && node --check src/app.js && node --check src/engine.js && node --check src/physics.js && node --check src/viewer.js"
+    "setup:dft": "powershell -NoProfile -ExecutionPolicy Bypass -File dft/setup.ps1",
+    "validate:dft": "node benchmarks/run-dft.mjs",
+    "test:dft:core": "node tests/dft-core.mjs",
+    "test:dft:desktop": "node tests/dft-desktop.mjs",
+    "test:dft:desktop:packaged": "node tests/dft-desktop.mjs --packaged",
+    "check": "node --check desktop.mjs && node --check preload.cjs && node --check server.mjs && node --check src/app.js && node --check src/engine.js && node --check src/physics.js && node --check src/viewer.js && node --check src/atomic.js && node --check src/atomic-ui.js && node --check src/atomic-viewer.js && node --check dft/jobs.mjs && node --check benchmarks/run-dft.mjs"
   },
   "dependencies": {
     "split-grid": "1.0.11",

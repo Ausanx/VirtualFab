@@ -15,6 +15,25 @@ uv pip install --python .venv-solver\Scripts\python.exe -r solver/requirements.t
 npm run package:win
 ```
 
+## 本地 DFT 后端
+
+“原子计算”页支持 Si 金刚石、单层 1H MoS₂ 原型，以及 CIF、POSCAR、扩展 XYZ 导入。可编辑晶胞/原子坐标与参数，运行真实 QE 的 SCF、均匀网格 NSCF 和高对称路径能带，并检查截断能、两类 k 网格与二维真空层的参数敏感度。输入与任务引用随项目保存；历史任务显示原输入，原始计算文件保留在本机应用数据目录的 `dft-jobs/<UUID>`，可用“原始文件”定位。项目 JSON 不包含这些计算文件，换电脑后需要另外转移任务目录或重算。
+
+DFT 使用独立的 `VirtualFab-QE` WSL2 环境。便携包包含适配器和安装脚本，**没有内置 Linux 或 QE 运行时**。这台开发机器已完成后端安装；在其他电脑上，需要先安装 WSL2 和 Git for Windows，再执行一次：
+
+```powershell
+# 源码目录
+npm run setup:dft
+# 便携程序目录
+powershell -NoProfile -ExecutionPolicy Bypass -File .\resources\dft\setup.ps1
+```
+
+安装器下载并校验 Ubuntu Base、官方 QE 7.5 源码与 Si/Mo/S 赝势，安装 Ubuntu 签名软件包并本地编译。首次安装需要联网、下载空间和编译时间，之后导入、计算和读结果均在本机执行。应用当前只支持本地磁盘上的任务目录；网络共享路径不在首版范围内。后端检查不运行真实器件计算。
+
+任务有日志、取消和显式恢复。完整扫描可从校验后的检查点复用；被中断的扫描从头重算，旧日志保留。更换 QE、ASE、NumPy 或数值库后需建立新任务。结果文件、输入和原始证据损坏时不会显示为有效结果。方法、溯源与理论边界见 [DFT 方法](docs/validation/dft-method.md)，依赖见 [第三方说明](dft/THIRD-PARTY.md)。
+
+首版限制为固定几何、PBE、标量相对论、非磁性、中性和固定占据。输出是采样 Kohn-Sham 带隙与晶体 E(k)，**不是光学/准粒子带隙、真空带边或器件 E(x)**；没有自动写回材料库。单次参数增量满足容差不等于渐近收敛、结构稳定或实验标定。原子计算与当前工艺几何、Te/InON 器件识别及硅 PN/PIN 连续模型保持独立。
+
 ## 开发入口
 
 需要 Node.js 22 或更新版本。首次在本目录执行：
@@ -41,6 +60,7 @@ PN/PIN 本地求解使用 DEVSIM 2.11.0，便携版已包含独立求解器、Py
 - 带隙分类为光学、准粒子、输运或未确定；光学/未确定带隙不进入电子带阶和接触势垒计算。亲和能需确认为真空参考。旧 v1 项目仍可打开，缺少新分类时保留未确定。
 - 单层 MoS₂/WSe₂ 的 Chiu 2015 相对界面档案，附样品条件和带阶误差。选择档案、确认条件且实际膜厚符合单层范围后应用；相对图和真空带边图分别显示。
 - 独立一维体硅 PN/PIN 平衡模型：300 K、零偏压、完全电离、Boltzmann 统计和理想欧姆端部，输出平衡能带、载流子、电场、内建电势与耗尽近似对比。参数随项目保存，结果更改后需重新求解；CSV 通过桌面原生保存对话框导出。
+- 本地原子计算、输入与结果溯源、参数敏感度扫描和任务恢复；首版仅验证 Si / MoS₂，不推断原子级异质界面和器件输运。
 - 网格设置可修改局部窗口和 8–80 列采样，并比较不同网格的实际膜层面积；物理求解另做网格减半检查。面积差是采样敏感度，不保证达到指定误差。
 - 手动参数的 Shockley I–V 示例与 CSV 导出，供检查模型，不声称从材料组合预测得到器件性能。
 - 桌面项目文件支持新建、打开、保存、另存为及未保存更改提醒；自动恢复副本保存在本机。网页入口保留 JSON 上传/下载；导入格式与大小校验，模板切换/导入前保留一个 `virtualfab.project.v1.previous` 备份。
@@ -71,9 +91,17 @@ npm run validate:physics
 npm run test:physics:desktop
 npm run test:physics:desktop -- --packaged
 npm run test:literature:desktop -- --packaged
+npm run test:dft:core
+npm run validate:dft
+npm run test:dft:desktop
+npm run test:dft:desktop:packaged
 ```
 
 带 `packaged` 的检查需先执行 `npm run package:win`；开发版物理检查需先执行 `npm run build:solver`。桌面检查使用 `artifacts/` 下的隔离配置，不修改正常使用的项目。物理报告见 [PN/PIN 平衡验证](docs/validation/equilibrium-results.md)。
+
+DFT 检查需要先安装后端；`validate:dft` 与 DFT 桌面检查运行真实计算，不是模拟成功状态。真实 Si/MoS₂ 结果、每组参数差异及 ASE 文本/XML 独立解析检查见 [DFT 运行报告](docs/validation/dft-results.md)。其宽带隙范围和直接/间接趋势检查仅作算例合理性检查，尚未完成不同电子结构引擎之间的定量交叉验证。
+
+2026-09-30 验证：57 项 Node 测试、7 项 Python 测试与语法检查通过。Si 的 4 组和单层 MoS₂ 的 5 组真实 QE 扫描完成，文本/XML 解析检查全部通过；Si 电荷密度网格、MoS₂ 截断能仍需加密。开发与便携版均通过结构导入、中文任务目录、取消后复用已完成扫描、历史结果和保存重开检查；1440 px / 390 px 原子画布非空且可交互。便携版 PN/PIN、CSV 导出与原有网页入口回归通过。
 
 2026-09-29 验证：42 项测试通过；4 个正常 PN/PIN 算例通过解析交叉检查和网格减半检查，2 个负对照正确报告短端部或粗网格问题。独立求解器在仅含 Windows System32 的 PATH、故意错误的外部数学库配置与中文搬移目录中均使用内置 OpenBLAS 求解。文献严格验证仍预期返回 1，默认材料库尚未获得独立实验标定。
 

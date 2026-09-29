@@ -6,10 +6,25 @@ import { fileURLToPath } from 'node:url';
 import { publicAsset } from './server.mjs';
 import { validateProject } from './src/engine.js';
 import { solveEquilibrium } from './solver/run.mjs';
+import { DftJobs } from './dft/jobs.mjs';
 
 const origin='virtualfab://app';
 let window,currentPath=null;
 let solverBusy=false;
+let dftJobs,quitting=false;
+ipcMain.handle('dft:probe',async event=>{fromWindow(event);return dftJobs.probe();});
+ipcMain.handle('dft:import',async(event,dimensionality)=>{
+  fromWindow(event);
+  if(![2,3].includes(dimensionality))throw Error('原子周期维度无效。');
+  const chosen=await dialog.showOpenDialog(window,{title:'导入原子结构',properties:['openFile'],filters:[{name:'原子结构',extensions:['cif','vasp','poscar','xyz','extxyz']},{name:'POSCAR',extensions:['*']}]});
+  return chosen.canceled||!chosen.filePaths[0]?null:dftJobs.importStructure(chosen.filePaths[0],dimensionality);
+});
+ipcMain.handle('dft:start',async(event,config)=>{fromWindow(event);return dftJobs.start(config);});
+ipcMain.handle('dft:list',async(event,ids)=>{fromWindow(event);return dftJobs.list(ids);});
+ipcMain.handle('dft:inspect',async(event,id)=>{fromWindow(event);return dftJobs.inspect(id);});
+ipcMain.handle('dft:cancel',async(event,id)=>{fromWindow(event);return dftJobs.cancel(id);});
+ipcMain.handle('dft:resume',async(event,id)=>{fromWindow(event);return dftJobs.resume(id);});
+ipcMain.handle('dft:reveal',async(event,id)=>{fromWindow(event);await dftJobs.verify(id);const directory=dftJobs.directory(id);shell.showItemInFolder(path.join(directory,'manifest.json'));});
 const projectFilter=[{name:'VirtualFab 项目',extensions:['json']}];
 function fromWindow(event){if(event.sender!==window?.webContents)throw Error('无效的项目文件请求。');}
 ipcMain.handle('physics:equilibrium',async(event,config)=>{
@@ -65,7 +80,9 @@ protocol.registerSchemesAsPrivileged([{scheme:'virtualfab',privileges:{standard:
 if(!app.requestSingleInstanceLock())app.quit();
 else {
   app.on('second-instance',()=>{window?.show();window?.focus();});
-  app.whenReady().then(()=>{
+  app.whenReady().then(async()=>{
+    dftJobs=new DftJobs({root:path.join(app.getPath('userData'),'dft-jobs'),resourcesPath:app.isPackaged?process.resourcesPath:undefined});
+    await dftJobs.init();
     protocol.handle('virtualfab',async request=>{
       try {
         const url=new URL(request.url);
@@ -94,4 +111,7 @@ else {
     window.loadURL(origin+'/');
   });
   app.on('window-all-closed',()=>app.quit());
+  app.on('before-quit',event=>{
+    if(!quitting&&(dftJobs?.active||dftJobs?.starting)){event.preventDefault();quitting=true;void dftJobs.close().finally(()=>app.quit());}
+  });
 }

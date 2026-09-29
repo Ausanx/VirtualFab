@@ -2,6 +2,7 @@ import { getMaterial,gapKindNames } from './materials.js';
 import { processTypes, patterns } from './recipes.js';
 import { interfaceKey,profilesFor } from './interfaces.js';
 import { validateEquilibrium } from './equilibrium.js';
+import { validateDft } from './atomic.js';
 
 const EPS=1e-8;
 const finite=(x,min,max)=>typeof x==='number'&&Number.isFinite(x)&&x>=min&&x<=max;
@@ -36,6 +37,7 @@ export function validateProject(p) {
     }
   }
   if(p.equilibrium!==undefined)validateEquilibrium(p.equilibrium);
+  if(p.dft!==undefined)validateDft(p.dft);
   if(!Array.isArray(p.steps)||p.steps.length<1||p.steps.length>150) throw Error('工艺步骤需为 1–150。');
   const stepIds=new Set();
   for(const s of p.steps) {

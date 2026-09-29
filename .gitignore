@@ -5,4 +5,5 @@ dist/
 .DS_Store
 .venv-solver/
 solver-bin/
+dft-bin/
 __pycache__/
