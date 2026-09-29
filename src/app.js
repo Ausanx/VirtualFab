@@ -3,6 +3,7 @@ import { categoryNames,evidenceNames,getMaterial } from './materials.js';
 import { simulate,validateProject } from './engine.js';
 import { analyze,diodeCurve } from './physics.js';
 import { StructureViewer,drawSlice,drawBands,drawCurve,escapeHtml as esc } from './viewer.js';
+import SplitGrid from 'split-grid';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const STORAGE='virtualfab.project.v1',LIBRARY='virtualfab.materials.v1';
@@ -170,3 +171,21 @@ new ResizeObserver(revealCurrentStep).observe($('#recipe-cards'));
 renderLibrary();render();updateCurve();if(restoreError)toast(restoreError);
 new ResizeObserver(()=>drawSlice($('#slice-plot'),state,project.materials,sliceIndex)).observe($('#slice-plot'));
 new ResizeObserver(()=>{if(curveRows.length)drawCurve($('#curve-plot'),curveRows);}).observe($('#curve-plot'));
+const bench=$('.workbench'),desktopLayout=matchMedia('(min-width: 851px)'),gutters=[$('#library-resize'),$('#inspector-resize')];
+const columnWidths=()=>getComputedStyle(bench).gridTemplateColumns.split(' ').map(Number.parseFloat);
+const updateSeparators=()=>{const widths=columnWidths();for(const [i,gutter] of gutters.entries()){const track=i?4:0;gutter.setAttribute('aria-valuemin',i?'250':'170');gutter.setAttribute('aria-valuemax',Math.round(widths[track]+widths[2]-420));gutter.setAttribute('aria-valuenow',Math.round(widths[track]));}};
+let splitLayout;
+function setDesktopLayout(){
+  if(desktopLayout.matches){
+    if(!splitLayout)splitLayout=SplitGrid({columnGutters:[{track:1,element:gutters[0]},{track:3,element:gutters[1]}],columnMinSizes:{0:170,2:420,4:250},onDragEnd:()=>{const widths=columnWidths();bench.style.gridTemplateColumns=`${widths[0]}px 5px 1fr 5px ${widths[4]}px`;updateSeparators();}});
+    updateSeparators();
+  }else{splitLayout?.destroy();splitLayout=null;bench.style.removeProperty('grid-template-columns');}
+}
+for(const [i,gutter] of gutters.entries())gutter.onkeydown=e=>{
+  if(!desktopLayout.matches||!['ArrowLeft','ArrowRight'].includes(e.key))return;
+  e.preventDefault();const widths=columnWidths(),track=i?2:0,other=track+2,min=[170,0,420,0,250],sum=widths[track]+widths[other];
+  widths[track]=Math.max(min[track],Math.min(sum-min[other],widths[track]+(e.key==='ArrowRight'?16:-16)));
+  widths[other]=sum-widths[track];bench.style.gridTemplateColumns=`${widths[0]}px 5px 1fr 5px ${widths[4]}px`;updateSeparators();
+};
+desktopLayout.addEventListener('change',setDesktopLayout);setDesktopLayout();
+new ResizeObserver(()=>{if(!desktopLayout.matches)return;if(columnWidths()[2]<420)bench.style.removeProperty('grid-template-columns');updateSeparators();}).observe(bench);

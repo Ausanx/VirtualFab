@@ -6,7 +6,7 @@
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/src/style.css">
   <link rel="stylesheet" href="/src/workbench.css">
-  <script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+  <script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/","split-grid":"/node_modules/split-grid/dist/split-grid.mjs"}}</script>
 </head>
 <body>
   <header class="topbar">
@@ -24,6 +24,7 @@
       <button id="open-materials" class="material-button"><span>▱</span><span>本地材料库<small id="material-count"></small></span><span>↗</span></button>
       <div class="library-note"><span class="status-dot"></span>项目数据保存在本机<br><span>材料值附带来源与证据等级</span></div>
     </aside>
+    <div id="library-resize" class="panel-gutter" role="separator" tabindex="0" aria-orientation="vertical" aria-label="调整工艺资源宽度" title="拖动或使用左右方向键调整工艺资源宽度"></div>
     <section class="workspace">
       <div class="workspace-heading"><div><h1 id="workspace-title">工艺编辑器</h1></div><button id="run-all" class="primary">▶ 运行至末步</button></div>
       <div class="view-tabs" role="tablist" aria-label="工作视图"><button role="tab" aria-selected="true" data-view="structure">结构视图</button><button role="tab" aria-selected="false" data-view="bands">能带与界面</button><button role="tab" aria-selected="false" data-view="electrical">电学模型</button><span id="model-label">局部区域 · 40 × 40 μm</span></div>
@@ -37,6 +38,7 @@
       <div id="electrical-view" class="main-view analysis-view" hidden><div class="analysis-title"><h2>二极管 I–V 模型</h2><span class="badge warn">手动参数 · 条件计算</span></div><p class="view-note">使用 Shockley 模型检查输入输出关系。参数由你指定，不代表从当前材料组合预测得到的性能。</p><form id="curve-form" class="curve-form"><label>饱和电流 Iₛ (A)<input name="saturationA" type="number" value="1e-12" step="any" min="1e-30" max="1" required></label><label>理想因子 n<input name="ideality" type="number" value="1.5" step="0.1" min="0.1" max="10" required></label><label>温度 (K)<input name="temperatureK" type="number" value="300" min="1" max="2000" required></label><label>光生电流 (A)<input name="photocurrentA" type="number" value="0" step="any" min="0" max="1" required></label><button class="primary" type="submit">计算曲线</button><button id="export-curve" type="button">导出 CSV</button></form><div id="curve-plot"></div><p class="view-note">扫描 −0.5 至 0.5 V。不包含串联电阻、击穿、隧穿或记忆动力学。DVS 与长时记忆需要动态模型和标定数据。</p></div>
       <section class="slice-panel"><div class="slice-heading"><strong>截面 A—A′</strong><label>Y = <output id="slice-value">0</output> μm <input type="range" id="slice-range" min="0" max="39" value="20" aria-label="剖面位置"></label><span>横向 μm · 厚度 nm</span></div><div id="slice-plot"></div></section>
     </section>
+    <div id="inspector-resize" class="panel-gutter" role="separator" tabindex="0" aria-orientation="vertical" aria-label="调整工艺参数宽度" title="拖动或使用左右方向键调整工艺参数宽度"></div>
     <aside class="inspector"><div class="inspector-tabs" role="tablist" aria-label="检查面板"><button role="tab" data-panel="params" aria-selected="true">工艺参数</button><button role="tab" data-panel="results" aria-selected="false">结构诊断 <span id="diagnostic-count"></span></button></div><div id="params-panel"></div><div id="results-panel" hidden></div></aside>
     <section class="timeline"><div class="timeline-heading"><div><strong>工艺流程</strong><span id="step-counter"></span></div><div class="playback"><button id="first-step" aria-label="回到空白状态">|◀</button><button id="previous-step" aria-label="上一步">◀</button><button id="play" aria-label="播放工艺">▶</button><button id="next-step" aria-label="下一步">▶|</button><span id="elapsed"></span></div></div><div id="recipe-cards" aria-label="工艺步骤"></div><div class="timeline-footer"><span id="simulation-status"></span></div></section>
   </main>
