@@ -1,8 +1,10 @@
 import { createProject,processTypes,templateNames,patterns,roles,step } from './recipes.js';
-import { categoryNames,evidenceNames,getMaterial } from './materials.js';
-import { simulate,validateProject } from './engine.js';
+import { categoryNames,evidenceNames,gapKindNames,getMaterial } from './materials.js';
+import { simulate,validateProject,compareGrids } from './engine.js';
 import { analyze,diodeCurve } from './physics.js';
-import { StructureViewer,drawSlice,drawBands,drawCurve,escapeHtml as esc } from './viewer.js';
+import { interfaceKey,profilesFor } from './interfaces.js';
+import { equilibriumDefaults,validateEquilibrium } from './equilibrium.js';
+import { StructureViewer,drawSlice,drawBands,drawInterfaceBands,drawEquilibrium,drawCurve,escapeHtml as esc } from './viewer.js';
 import SplitGrid from 'split-grid';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
@@ -11,6 +13,7 @@ let project=createProject('crossbar'),restoreError='',restored=false;
 try{const saved=localStorage.getItem(STORAGE);if(saved){const parsed=JSON.parse(saved);validateProject(parsed);project=parsed;restored=true;}}catch(error){restoreError=`本地项目读取失败，已加载示例；原存档尚未覆盖。${error.message}`;}
 let selected=project.steps.length-1,through=selected,sliceIndex=Math.floor(project.resolution/2),state,result,viewer,timer=null,materialId=project.materials[0].id,curveRows=[],confirmAction=null;
 let savedSnapshot=restored?null:JSON.stringify(project),projectFile='';
+let equilibriumResult=null,equilibriumGeneration=0,equilibriumRunning=false;
 function toast(message){$('#toast').textContent=message;$('#toast').classList.add('visible');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('visible'),4500);}
 function hasUnsavedChanges(){return savedSnapshot!==JSON.stringify(project);}
 function updateSaveStatus(){
@@ -22,7 +25,12 @@ function updateSaveStatus(){
 }
 function persist(){try{localStorage.setItem(STORAGE,JSON.stringify(project));updateSaveStatus();}catch{$('#save-status').textContent='自动备份失败 · 请保存';toast('本地自动备份不可用，请保存项目文件。');}}
 function safeUrl(value){try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)?u.href:'';}catch{return '';}}
-function download(name,text,type='application/json'){const url=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function download(name,text,type='application/json'){
+  if(type==='text/csv'&&window.virtualFabFiles?.exportCsv){
+    window.virtualFabFiles.exportCsv(name,text).then(saved=>{if(saved)toast('CSV 数据已导出。');}).catch(error=>toast('导出失败：'+error.message));return;
+  }
+  const url=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 async function saveProject(saveAs=false){
   try{
     validateProject(project);
@@ -134,11 +142,50 @@ function renderViews(){
   $('#layer-legend').innerHTML=ids.map(id=>{const m=getMaterial(project.materials,id);return `<span class="legend-item"><i class="swatch" style="background:${m.color}"></i>${esc(m.name)}</span>`;}).join('')||'<span>尚未执行衬底步骤</span>';
   drawSlice($('#slice-plot'),state,project.materials,sliceIndex);
   drawBands($('#band-diagram'),state,project.materials);
-  $('#interface-results').innerHTML=result.interfaces.map(i=>`<div class="interface-row"><span>${esc(i.a)} / ${esc(i.b)}</span><span>${i.type==='unknown'?'带阶数据不足':`Type-${i.type} · ΔE꜀ ${i.deltaEc.toFixed(2)} eV · ΔEᵥ ${i.deltaEv.toFixed(2)} eV`}</span></div>`).join('');
+  renderInterfaces();
   const y=(sliceIndex+.5)*project.sizeUm/project.resolution-project.sizeUm/2;$('#slice-value').textContent=y.toFixed(1);$('#slice-range').max=project.resolution-1;$('#slice-range').value=sliceIndex;
 }
+function renderInterfaces(){
+  $('#interface-results').innerHTML=result.interfaces.map((i,index)=>{
+    const selection=project.interfaceSelections?.find(s=>interfaceKey(s.a,s.b)===interfaceKey(i.a,i.b)),profiles=profilesFor(i.a,i.b);
+    const numeric=i.type==='unknown'?'带阶数据不足':`Type-${i.type} · ΔEc ${i.deltaEc.toFixed(2)}${i.deltaEcError?` ± ${i.deltaEcError.toFixed(2)}`:''} eV · ΔEv ${i.deltaEv.toFixed(2)}${i.deltaEvError?` ± ${i.deltaEvError.toFixed(2)}`:''} eV`;
+    const profile=profiles.find(p=>p.id===selection?.profileId);
+    return `<section class="interface-detail"><div class="interface-row"><strong>${esc(i.a)} → ${esc(i.b)}</strong><span>${numeric}</span></div><p class="view-note">${esc(i.note)}</p>${profiles.length?`<div class="interface-controls"><label>界面数据<select data-interface-index="${index}">${options({'':'材料真空近似',...Object.fromEntries(profiles.map(p=>[p.id,p.name]))},selection?.profileId||'')}</select></label>${profile?`<label class="check-label"><input type="checkbox" data-interface-confirm="${index}"${selection.conditionsConfirmed?' checked':''}>样品及测量条件与档案一致</label>`:''}</div>`:''}${profile?`<details class="interface-conditions"><summary>来源与适用条件</summary><p>${esc(profile.conditions)}</p><p>${esc(profile.note)}</p><a href="${esc(profile.source)}" target="_blank" rel="noopener noreferrer">Chiu 2015 · DOI ↗</a></details>`:''}${i.reference==='relative-interface'?`<div class="interface-relative-label">相对参考 · Ev(${esc(i.a)}) = 0 · 非真空能级</div><div class="interface-band-plot" data-relative-plot="${index}"></div>`:''}</section>`;
+  }).join('')||'<p class="empty-message">当前结构没有半导体接触界面。</p>';
+  $$('[data-relative-plot]').forEach(el=>drawInterfaceBands(el,result.interfaces[Number(el.dataset.relativePlot)],project.materials));
+  function setSelection(index,profileId,conditionsConfirmed){
+    const i=result.interfaces[index],next=structuredClone(project);
+    next.interfaceSelections=(next.interfaceSelections||[]).filter(s=>interfaceKey(s.a,s.b)!==interfaceKey(i.a,i.b));
+    if(profileId)next.interfaceSelections.push({a:i.a,b:i.b,profileId,conditionsConfirmed});
+    applyChange(next);
+  }
+  $$('[data-interface-index]').forEach(el=>el.onchange=()=>setSelection(Number(el.dataset.interfaceIndex),el.value,false));
+  $$('[data-interface-confirm]').forEach(el=>el.onchange=()=>{
+    const i=result.interfaces[Number(el.dataset.interfaceConfirm)],s=project.interfaceSelections.find(s=>interfaceKey(s.a,s.b)===interfaceKey(i.a,i.b));
+    setSelection(Number(el.dataset.interfaceConfirm),s.profileId,el.checked);
+  });
+}
+function invalidateEquilibrium(){
+  equilibriumGeneration++;equilibriumResult=null;$('#export-equilibrium').disabled=true;
+  $('#equilibrium-summary').innerHTML='';$('#equilibrium-plot').innerHTML='';
+  $('#equilibrium-status').textContent='尚未求解';
+}
+function renderEquilibriumConfig(){
+  const config=project.equilibrium||equilibriumDefaults;
+  for(const el of $$('#equilibrium-form input'))el.value=config[el.name];
+  $('#equilibrium-settings').open=true;
+  $('#solve-equilibrium').disabled=!window.virtualFabPhysics||equilibriumRunning;
+  if(!window.virtualFabPhysics)$('#equilibrium-status').textContent='本地物理求解器仅在桌面版运行。';
+}
+function renderEquilibriumResult(){
+  if(!equilibriumResult)return;
+  const r=equilibriumResult,o=r.oracle,m=r.meshCheck;
+  $('#equilibrium-status').textContent=`DEVSIM ${r.solverVersion} · 已收敛 · ${r.rows.length} 个节点 · ${r.config.intrinsicLengthUm?'PIN':'PN'}`;
+  $('#equilibrium-summary').innerHTML=`<table class="data-table"><thead><tr><th>量</th><th>数值解</th><th>耗尽近似</th></tr></thead><tbody><tr><td>内建电势 (V)</td><td>${r.builtInV.toFixed(5)}</td><td>${o.builtInV.toFixed(5)}</td></tr><tr><td>峰值电场 (V/cm)</td><td>${r.peakFieldVcm.toExponential(3)}</td><td>${o.peakFieldVcm.toExponential(3)}</td></tr></tbody></table><p class="view-note">${m.requestedNm} → ${m.returnedNm} nm：电势差 ${(1000*m.potentialDifferenceV).toFixed(3)} mV；峰值电场变化 ${(100*m.peakFieldRelativeDifference).toFixed(2)}%。${m.withinTolerance?'网格检查通过':'网格需加密'}。</p>${r.warnings.map(w=>`<p class="error-message">${esc(w)}</p>`).join('')}<details class="physics-conditions"><summary>模型参数与边界条件</summary><p>独立的一维体硅同质结；完全电离、Boltzmann 统计、理想欧姆端部、零偏压。i 区为本征硅。当前三维工艺未映射到本算例。</p><p>Eg = ${r.parameters.gapEv} eV；εr = ${r.parameters.relativePermittivity}；Nc = ${r.parameters.ncCm3.toExponential(2)}、Nv = ${r.parameters.nvCm3.toExponential(2)} cm⁻³；ni = ${r.parameters.niCm3.toExponential(3)} cm⁻³，由带隙与态密度一致推导。能量参考 EF = 0。</p><p>解析式采用耗尽近似，数值解保留移动电荷，两者不要求完全相等。未包含异质界面、钉扎、复合、光生或简并统计。</p></details>`;
+  drawEquilibrium($('#equilibrium-plot'),r,$('#equilibrium-quantity').value);$('#export-equilibrium').disabled=false;
+}
 function render(){
-  const start=performance.now();state=simulate(project,through);result=analyze(state,project.materials);const elapsed=performance.now()-start;
+  const start=performance.now();state=simulate(project,through);result=analyze(state,project.materials,project.interfaceSelections);const elapsed=performance.now()-start;
   $('#project-name').value=project.name;updateSaveStatus();$('#material-count').textContent=`${project.materials.length} 种材料`;
   $('#model-label').textContent=`局部区域 · ${project.sizeUm} × ${project.sizeUm} μm`;$('#elapsed').textContent=`计算 ${elapsed.toFixed(0)} ms`;
   $('#simulation-status').textContent=state.stoppedAt!==null?`步骤 ${state.stoppedAt+1} 停止 · 查看诊断`:'几何计算完成';
@@ -166,14 +213,18 @@ function renderMaterialDetail(isNew=false){
     evidence.onchange=()=>{input.disabled=evidence.value==='missing';if(input.disabled)input.value='';};
     input.disabled=evidence.value==='missing';
   }
+  const energyTypes=document.createElement('div');energyTypes.className='material-info';
+  energyTypes.innerHTML=`<label>带隙类型<select name="bandGap-kind">${options(gapKindNames,m.bandGap.kind||'unspecified')}</select></label><label>电子亲和能参考<select name="affinity-reference">${options({unspecified:'未确认参考',vacuum:'真空参考'},m.affinity.reference||'unspecified')}</select></label>`;
+  $('#material-form .property-row').before(energyTypes);
   $('#material-form').onsubmit=e=>{
     e.preventDefault();const data=new FormData(e.target),next=structuredClone(project),updated=structuredClone(m);
     for(const key of ['id','name','category','polarity','color','tone','reference','note'])updated[key]=String(data.get(key)||'').trim();
     for(const key of Object.keys(propertyLabels)){
       const evidence=String(data.get(key+'-evidence')),raw=data.get(key);
       if(evidence!=='missing'&&(raw===null||String(raw).trim()==='')){$('#material-error').textContent='有证据等级的参数需要数值；未知时请选择“缺失”。';return;}
-      updated[key]={value:evidence==='missing'?null:Number(raw),unit:'eV',evidence,source:String(data.get(key+'-source')),note:String(data.get(key+'-note'))};
+      updated[key]={...updated[key],value:evidence==='missing'?null:Number(raw),unit:'eV',evidence,source:String(data.get(key+'-source')),note:String(data.get(key+'-note'))};
     }
+    updated.bandGap.kind=String(data.get('bandGap-kind'));updated.affinity.reference=String(data.get('affinity-reference'));
     if(isNew&&next.materials.some(a=>a.id===updated.id)){$('#material-error').textContent='材料 ID 已存在，请使用其他 ID。';return;}
     if(isNew)next.materials.push(updated);else next.materials[next.materials.findIndex(a=>a.id===m.id)]=updated;
     try{validateProject(next);}catch(error){$('#material-error').textContent=error.message;return;}
@@ -186,7 +237,7 @@ function activateProject(next,file=''){
   stop();try{localStorage.setItem(STORAGE+'.previous',JSON.stringify(project));}catch{}
   project=next;selected=project.steps.length-1;through=selected;sliceIndex=Math.floor(project.resolution/2);
   projectFile=file;savedSnapshot=JSON.stringify(project);$('#template').value=project.template||'blank';
-  persist();render();
+  invalidateEquilibrium();renderEquilibriumConfig();persist();render();
   if(viewer){viewer.wafer=false;$('#wafer-view').setAttribute('aria-pressed','false');viewer.setView('perspective');renderViews();}
 }
 $('#template').innerHTML=options(templateNames,project.template);
@@ -209,10 +260,43 @@ $('#project-file').onchange=async e=>{
   try{if(file.size>2_000_000)throw Error('项目文件上限为 2 MB。');const imported=JSON.parse(await file.text());validateProject(imported);confirm('打开项目',`将打开“${imported.name}”，包含 ${imported.steps.length} 个步骤。当前项目会保留自动备份。`,async()=>{try{await window.virtualFabFiles?.reset();activateProject(imported,file.name);}catch(error){toast('打开失败：'+error.message);}},hasUnsavedChanges());}catch(error){toast('导入失败，当前项目未修改：'+error.message);}
 };
 $('#save-project').onclick=()=>saveProject();$('#save-as-project').onclick=()=>saveProject(true);
+$('#grid-settings').onclick=()=>{
+  $('#grid-form [name="sizeUm"]').value=project.sizeUm;$('#grid-form [name="resolution"]').value=project.resolution;
+  $('#grid-results').innerHTML='';updateGridSpacing();$('#grid-dialog').showModal();
+};
+$('#close-grid').onclick=()=>$('#grid-dialog').close();
+function updateGridSpacing(){
+  const f=$('#grid-form');$('#grid-spacing').textContent=`Δx = ${(Number(f.elements.sizeUm.value)/Number(f.elements.resolution.value)).toFixed(3)} μm`;
+  $('#grid-results').innerHTML='';
+}
+$('#grid-form').oninput=updateGridSpacing;
+$('#grid-form').onsubmit=e=>{
+  e.preventDefault();const next=structuredClone(project);next.sizeUm=Number(e.target.elements.sizeUm.value);next.resolution=Number(e.target.elements.resolution.value);
+  const oldIndex=sliceIndex;sliceIndex=Math.floor(next.resolution/2);
+  if(applyChange(next))$('#grid-dialog').close();else sliceIndex=oldIndex;
+};
+$('#compare-grids').onclick=()=>{
+  try{
+    if(!$('#grid-form').reportValidity())return;
+    const next={...project,sizeUm:Number($('#grid-form [name="sizeUm"]').value),resolution:Number($('#grid-form [name="resolution"]').value)};
+    validateProject(next);const grids=compareGrids(next,through),ids=[...new Set(grids.flatMap(g=>g.metrics.map(m=>m.stepId)))];
+    $('#grid-results').innerHTML=`<div class="table-scroll"><table class="data-table"><caption>当前工艺位置 · 面积 (μm²)</caption><thead><tr><th>膜层</th>${grids.map(g=>`<th>${g.resolution} 列<br>Δx ${g.dxUm.toFixed(3)}</th>`).join('')}</tr></thead><tbody>${ids.map(id=>`<tr><td>${esc(project.steps.find(s=>s.id===id)?.name||id)}</td>${grids.map(g=>`<td>${(g.metrics.find(m=>m.stepId===id)?.areaUm2||0).toFixed(3)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="view-note">面积差为采样敏感度，不等同于真实误差。窗口改变会裁剪器件；工艺尺寸与偏移不随窗口缩放。</p>${grids.map(g=>`<p class="view-note">${g.resolution} 列：${g.stoppedAt!==null?'工艺停止；': ''}${g.warnings.length?g.warnings.map(w=>`步骤 ${w.index+1} ${esc(w.code)}`).join('，'):'无小于两列采样间距的特征'}</p>`).join('')}`;
+  }catch(error){$('#grid-results').textContent=error.message;}
+};
 $('#process-search').oninput=renderLibrary;
 $('#first-step').onclick=()=>selectStep(-1);$('#previous-step').onclick=()=>selectStep(through-1);$('#next-step').onclick=()=>selectStep(through+1);$('#run-all').onclick=()=>selectStep(project.steps.length-1);
 $('#play').onclick=()=>{if(timer){stop();return;}if(through>=project.steps.length-1)selectStep(-1);$('#play').textContent='Ⅱ';$('#play').setAttribute('aria-label','暂停工艺');timer=setInterval(()=>{selectStep(through+1,{playing:true});if(through>=project.steps.length-1||state.stoppedAt!==null)stop();},850);};
-$$('[data-view]').forEach(b=>b.onclick=()=>{$$('[data-view]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));for(const view of ['structure','bands','electrical'])$(`#${view}-view`).hidden=view!==b.dataset.view;if(b.dataset.view==='structure')requestAnimationFrame(()=>viewer?.resize());});
+function updateAnalysisLayout(){
+  const view=$('[data-view][aria-selected="true"]').dataset.view,equilibrium=$('[data-band-mode][aria-selected="true"]').dataset.bandMode==='equilibrium';
+  $('.slice-panel').hidden=view==='bands'&&equilibrium;
+  $('#workspace-title').textContent=view==='structure'?'工艺编辑器':view==='electrical'?'电学模型':equilibrium?'PN/PIN 平衡':'材料与界面';
+}
+$$('[data-view]').forEach(b=>b.onclick=()=>{$$('[data-view]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));for(const view of ['structure','bands','electrical'])$(`#${view}-view`).hidden=view!==b.dataset.view;updateAnalysisLayout();if(b.dataset.view==='structure')requestAnimationFrame(()=>viewer?.resize());});
+$$('[data-band-mode]').forEach(b=>b.onclick=()=>{
+  $$('[data-band-mode]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));
+  $('#material-bands-panel').hidden=b.dataset.bandMode!=='materials';$('#equilibrium-panel').hidden=b.dataset.bandMode!=='equilibrium';
+  updateAnalysisLayout();renderEquilibriumResult();
+});
 $$('[data-panel]').forEach(b=>b.onclick=()=>setPanel(b.dataset.panel));
 $('#slice-range').oninput=e=>{sliceIndex=Number(e.target.value);renderViews();};
 for(const type of ['perspective','top','front'])$(`#view-${type}`).onclick=()=>viewer?.setView(type);
@@ -221,11 +305,38 @@ $('#wafer-view').onclick=()=>{if(!viewer)return;viewer.wafer=!viewer.wafer;$('#w
 $('#open-materials').onclick=()=>{materialId=project.materials[0].id;renderMaterialList();renderMaterialDetail();$('#materials-dialog').showModal();};$('#close-materials').onclick=()=>$('#materials-dialog').close();$('#material-search').oninput=renderMaterialList;$('#new-material').onclick=()=>renderMaterialDetail(true);
 function updateCurve(){try{if(!$('#curve-form').reportValidity())return false;const values=Object.fromEntries(new FormData($('#curve-form')).entries());for(const key in values)values[key]=Number(values[key]);curveRows=diodeCurve({...values,minV:-.5,maxV:.5});drawCurve($('#curve-plot'),curveRows);return true;}catch(error){curveRows=[];$('#curve-plot').textContent=error.message;toast(error.message);return false;}}
 $('#curve-form').onsubmit=e=>{e.preventDefault();updateCurve();};$('#export-curve').onclick=()=>{if(updateCurve())download('manual-shockley-model.csv','voltage_V,current_A\n'+curveRows.map(r=>`${r.voltageV},${r.currentA}`).join('\n')+'\n','text/csv');};
+function readEquilibriumConfig(){
+  return validateEquilibrium({material:'Si',temperatureK:300,...Object.fromEntries([...new FormData($('#equilibrium-form'))].map(([k,v])=>[k,Number(v)]))});
+}
+$('#equilibrium-form').oninput=()=>{
+  invalidateEquilibrium();$('#equilibrium-status').textContent='参数已更改，尚未重新求解。';
+  try{project.equilibrium=readEquilibriumConfig();persist();}
+  catch(error){$('#equilibrium-status').textContent=error.message;}
+};
+$('#equilibrium-form').onsubmit=async e=>{
+  e.preventDefault();if(equilibriumRunning||!window.virtualFabPhysics)return;
+  try{
+    const config=readEquilibriumConfig();invalidateEquilibrium();
+    const next=structuredClone(project);next.equilibrium=config;if(!applyChange(next))return;
+    const generation=equilibriumGeneration;equilibriumRunning=true;$('#solve-equilibrium').disabled=true;$('#equilibrium-status').textContent='正在求解并检查物理网格…';
+    try{const r=await window.virtualFabPhysics.equilibrium(config);if(generation===equilibriumGeneration){equilibriumResult=r;$('#equilibrium-settings').open=false;renderEquilibriumResult();}}
+    catch(error){if(generation===equilibriumGeneration)$('#equilibrium-status').textContent='求解失败：'+error.message;}
+    finally{equilibriumRunning=false;$('#solve-equilibrium').disabled=false;}
+  }catch(error){$('#equilibrium-status').textContent=error.message;}
+};
+$('#equilibrium-quantity').onchange=renderEquilibriumResult;
+$('#export-equilibrium').onclick=()=>{
+  if(!equilibriumResult)return;
+  const r=equilibriumResult,fields=$('#equilibrium-quantity').value==='field';
+  const columns=fields?['xUm','fieldVcm']:['xUm','potentialV','ecEv','evEv','efEv','electronCm3','holeCm3','netDopingCm3'];
+  download(fields?'si-equilibrium-field.csv':'si-equilibrium-nodes.csv',[columns.join(','),...(fields?r.fields:r.rows).map(row=>columns.map(k=>row[k]).join(','))].join('\n')+'\n','text/csv');
+};
 try{viewer=new StructureViewer($('#three-view'));}catch(error){$('#three-view').innerHTML='<p class="empty-message">WebGL 不可用。剖面、工艺计算与诊断仍可使用。</p>';toast('三维视窗初始化失败：'+error.message);}
 new ResizeObserver(revealCurrentStep).observe($('#recipe-cards'));
-renderLibrary();render();updateCurve();if(restoreError)toast(restoreError);
+renderLibrary();render();renderEquilibriumConfig();updateCurve();if(restoreError)toast(restoreError);
 new ResizeObserver(()=>drawSlice($('#slice-plot'),state,project.materials,sliceIndex)).observe($('#slice-plot'));
 new ResizeObserver(()=>{if(curveRows.length)drawCurve($('#curve-plot'),curveRows);}).observe($('#curve-plot'));
+new ResizeObserver(()=>{if(equilibriumResult)drawEquilibrium($('#equilibrium-plot'),equilibriumResult,$('#equilibrium-quantity').value);}).observe($('#equilibrium-plot'));
 const bench=$('.workbench'),desktopLayout=matchMedia('(min-width: 851px)'),gutters=[$('#library-resize'),$('#inspector-resize')];
 const columnWidths=()=>getComputedStyle(bench).gridTemplateColumns.split(' ').map(Number.parseFloat);
 const updateSeparators=()=>{const widths=columnWidths();for(const [i,gutter] of gutters.entries()){const track=i?4:0;gutter.setAttribute('aria-valuemin',i?'250':'170');gutter.setAttribute('aria-valuemax',Math.round(widths[track]+widths[2]-420));gutter.setAttribute('aria-valuenow',Math.round(widths[track]));}};

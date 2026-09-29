@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.mjs",
     "desktop": "electron .",
-    "package:win": "electron-packager . VirtualFab --platform=win32 --arch=x64 --out=dist --asar --overwrite --ignore=artifacts --ignore=docs --ignore=tests --ignore=.git",
+    "build:solver": "powershell -NoProfile -ExecutionPolicy Bypass -File solver/build.ps1",
+    "package:win": "npm run build:solver && electron-packager . VirtualFab --platform=win32 --arch=x64 --out=dist --asar --overwrite --extra-resource=solver-bin/VirtualFabSolver --ignore=solver-bin --ignore=.venv-solver --ignore=artifacts --ignore=docs --ignore=tests --ignore=.git",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node tests/browser.mjs",
     "test:desktop": "node tests/desktop.mjs",
@@ -15,6 +16,8 @@
     "validate:literature": "node benchmarks/run-literature.mjs",
     "validate:literature:strict": "node benchmarks/run-literature.mjs --strict",
     "test:literature:desktop": "node tests/literature-desktop.mjs",
+    "test:physics:desktop": "node tests/physics-desktop.mjs",
+    "validate:physics": "node benchmarks/run-equilibrium.mjs",
     "check": "node --check desktop.mjs && node --check preload.cjs && node --check server.mjs && node --check src/app.js && node --check src/engine.js && node --check src/physics.js && node --check src/viewer.js"
   },
   "dependencies": {

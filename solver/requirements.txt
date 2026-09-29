@@ -1,0 +1,2 @@
+devsim==2.11.0
+pyinstaller==6.22.3

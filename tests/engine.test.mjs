@@ -129,7 +129,7 @@ test('MIM does not assert memory behavior; missing band information stays missin
 });
 
 test('band offsets distinguish nested, staggered and broken gaps independently of polarity', () => {
-  const band=(gap,affinity)=>({bandGap:{value:gap,evidence:'estimated'},affinity:{value:affinity,evidence:'estimated'}});
+  const band=(gap,affinity)=>({bandGap:{value:gap,kind:'transport',evidence:'estimated'},affinity:{value:affinity,reference:'vacuum',evidence:'estimated'}});
   assert.equal(bandAlignment(band(3,3),band(1,4)).type,'I');
   assert.equal(bandAlignment(band(2,3),band(2,4)).type,'II');
   assert.equal(bandAlignment(band(1,3),band(1,5)).type,'III');

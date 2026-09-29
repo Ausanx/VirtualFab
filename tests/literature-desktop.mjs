@@ -65,18 +65,20 @@ try {
     const result = await page.locator('#results-panel').innerText();
     if (key === 'radisavljevic2011') assert.match(result, /双栅 FET/);
     if (key === 'lee2014') assert.match(result, /PN 异质结/);
-    if (key === 'chiu2015') assert.match(result, /能带类型未知/);
+    if (key === 'chiu2015') assert.match(result, /Type-II 异质界面（文献档案）/);
     await checkCanvas(page, path.join(output, `${key}-canvas.png`));
     await page.screenshot({ path: path.join(output, `${key}-structure.png`) });
     await page.locator('[data-view="bands"]').click();
     if (key === 'lee2014') {
       const bands = await page.locator('#interface-results').innerText();
-      assert.match(bands, /Type-II/);
-      assert.match(bands, /-0\.30 eV/);
-      assert.match(bands, /-0\.50 eV/);
+      assert.match(bands, /带阶数据不足/);
+      assert.match(bands, /光学带隙/);
     }
     if (key === 'chiu2015') {
-      assert.match(await page.locator('#interface-results').innerText(), /带阶数据不足/);
+      assert.match(await page.locator('#interface-results').innerText(), /Type-II/);
+      assert.match(await page.locator('#interface-results').innerText(), /-0\.76/);
+      assert.match(await page.locator('#interface-results').innerText(), /-0\.83/);
+      assert.equal(await page.getByRole('img',{name:'界面相对带边',exact:true}).count(),1);
       assert.ok(await page.locator('#band-diagram').getByText('带边缺失', { exact: true }).count() >= 2);
     }
     await page.screenshot({ path: path.join(output, `${key}-bands.png`) });

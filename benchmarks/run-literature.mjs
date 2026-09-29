@@ -12,14 +12,14 @@ for (const key of Object.keys(report.references)) {
 }
 await writeFile(new URL('artifacts/literature/results.json', root), JSON.stringify(report, null, 2) + '\n');
 
-const rows = [...report.bands.default, ...report.bands.stsConsistency];
+const rows = [...report.bands.default,...report.bands.legacy,...report.bands.profile, ...report.bands.stsConsistency];
 const columns = ['kind', 'quantity', 'predictedEv', 'referenceEv', 'intervalEv', 'residualEv', 'status'];
 await writeFile(new URL('artifacts/literature/band-offsets.csv', root), [columns.join(','), ...rows.map(row => columns.map(key => row[key]).join(','))].join('\n') + '\n');
 const gridColumns = ['resolution', 'dxUm', 'areaUm2', 'targetUm2', 'absoluteErrorUm2', 'rasterBoundUm2', 'withinRasterBound'];
 await writeFile(new URL('artifacts/literature/grid-sweep.csv', root), [gridColumns.join(','), ...report.grid.map(row => gridColumns.map(key => row[key]).join(','))].join('\n') + '\n');
 
 const f = n => n === null ? '缺失' : n.toFixed(3);
-const scientificFailures = report.bands.default.filter(r => r.status !== 'within-reported-interval');
+const scientificFailures = report.bands.legacy.filter(r => r.status !== 'within-reported-interval');
 const markdown = `# 文献基准运行结果
 
 由 \`npm run validate:literature\` 生成。判定标准及工艺简化见 [验证方法](literature-calibration.md)。本文件记录模型输出，不代表实验已全面复现。
@@ -32,15 +32,23 @@ ${report.cases.map(c => `| ${c.key} | ${c.stoppedAt ?? '无'} | ${c.codes.join('
 
 厚度、开口面积、端子隔离及负对照由 \`tests/literature.test.mjs\` 检查；报告命令本身不替代运行测试。
 
-## 默认材料库的外部数据检验
+## 带隙类型保护与原始估算残差
 
-方向为 MoS2 → WSe2，带阶定义为后者带边减前者带边。误差区间取 Chiu 2015 的原文报告值，不解释为特定统计置信区间。
+方向为 MoS2 → WSe2，带阶定义为后者带边减前者带边。误差区间取 Chiu 2015 的原文报告值，不解释为特定统计置信区间。当前默认 MoS2/WSe2 的带隙为光学示例值，软件已阻止其进入电子带阶及理想接触势垒运算。旧项目未分类的带隙同样不进入定量计算。下表保留修复前混用光学带隙的估算结果，不能作为当前模型预测。
 
 | 量 | 默认计算 / eV | 文献 / eV | 原文误差 / eV | 残差 / eV | 结果 |
 | --- | --- | --- | --- | --- | --- |
-${report.bands.default.map(r => `| ${r.quantity} | ${f(r.predictedEv)} | ${f(r.referenceEv)} | ±${f(r.intervalEv)} | ${f(r.residualEv)} | ${r.status === 'within-reported-interval' ? '位于原文区间内' : '未通过'} |`).join('\n')}
+${report.bands.legacy.map(r => `| ${r.quantity} | ${f(r.predictedEv)} | ${f(r.referenceEv)} | ±${f(r.intervalEv)} | ${f(r.residualEv)} | ${r.status === 'within-reported-interval' ? '位于原文区间内' : '未通过'} |`).join('\n')}
 
-${scientificFailures.length} 项定量比较未通过。默认类型为 Type-${report.bands.defaultAlignment.type}；类型标签一致不能替代带阶数值标定。默认带隙/亲和能仍为估算，也不保证适用于该单层样品。软件按实际叠层顺序显示 WSe2 / MoS2 时带阶符号相反，不是数值错误。
+${scientificFailures.length} 项原始估算比较未通过；残差仍保留。当前默认不输出定量带阶（${report.bands.defaultAlignment.note}）。\`--strict\` 继续返回失败，表示无条件默认库尚未得到独立实验标定；不能通过植入参考答案把它改成全通过。
+
+## 有条件界面档案应用
+
+| 量 | 档案输出 / eV | 文献 / eV | 残差 / eV |
+| --- | --- | --- | --- |
+${report.bands.profile.map(r=>`| ${r.quantity} | ${f(r.predictedEv)} | ${f(r.referenceEv)} | ${f(r.residualEv)} |`).join('\n')}
+
+本项检查文献数据应用、方向符号和相对参考，不是独立预测或实验复现。VBO 是 XPS/STS 校正值，CBO 用 VBO 和准粒子带隙推导；相关误差不当作独立观测。用户必须选择档案并确认样品/测量条件，实际膜厚需在单层范围 0.5–0.9 nm。界面图用第一种材料价带顶为零，绝对亲和能保持缺失。Chiu 项目显式选择本档案，未知载流子类型仍不自动变成 PN。
 
 ## STS 相对带边算例
 
@@ -71,5 +79,5 @@ ${Object.values(report.references).map(r => `- ${r.authors}: *${r.title}*. ${r.j
 await writeFile(new URL('docs/validation/literature-results.md', root), markdown);
 console.log(`Generated 3 project files: ${fileURLToPath(new URL('examples/literature/', root))}`);
 console.log(`Report: ${fileURLToPath(new URL('docs/validation/literature-results.md', root))}`);
-console.log(`Default band challenge: ${scientificFailures.length} outside reported intervals. STS reference check is shared-data consistency only.`);
+console.log(`Archived estimate challenge: ${scientificFailures.length} outside reported intervals. Current optical gaps are withheld; profile application and STS reference checks are not independent replication.`);
 if (process.argv.includes('--strict') && (scientificFailures.length || report.bands.defaultAlignment.type !== report.references.chiu2015.measurements.type || report.cases.some(c => c.stoppedAt !== null) || report.grid.some(r => !r.withinRasterBound))) process.exitCode = 1;

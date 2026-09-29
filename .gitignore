@@ -3,3 +3,6 @@ artifacts/
 dist/
 *.log
 .DS_Store
+.venv-solver/
+solver-bin/
+__pycache__/

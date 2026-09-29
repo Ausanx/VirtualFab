@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { evidenceNames,getMaterial } from './materials.js';
+import { evidenceNames,getMaterial,bandDataIssue } from './materials.js';
 import { cellPosition } from './engine.js';
 
 export const escapeHtml = x => String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -104,20 +104,60 @@ export function drawSlice(container,state,materials,index) {
 export function drawBands(container,state,materials) {
   const ids=[...new Set(state.cells.flat().filter(l=>l.role!=='resist'&&l.role!=='support').map(l=>l.material))];
   if(!ids.length){container.innerHTML='<p class="empty-message">加入功能材料后显示带边。尚无材料时不生成能带。</p>';return;}
-  const x=54,y=30,h=168,w=Math.max(570,ids.length*112),W=w+80,H=248,py=e=>y-e/11*h;
+  const energyExtent=Math.max(11,...ids.map(id=>{const m=getMaterial(materials,id);return !bandDataIssue(m)?m.affinity.value+m.bandGap.value+2:Number.isFinite(m.workFunction.value)?m.workFunction.value+2:0;}));
+  const x=54,y=30,h=168,w=Math.max(570,ids.length*112),W=w+80,H=248,py=e=>y-e/energyExtent*h;
   let content='',xt=[];
   ids.forEach((id,i)=>{
     const m=getMaterial(materials,id),cx=x+(i+.5)*w/ids.length,bw=Math.min(78,w/ids.length-18);xt.push({pos:cx,label:id});
-    if(m.category==='semiconductor'&&m.affinity.value!==null&&m.bandGap.value!==null){
+    if(m.category==='semiconductor'&&!bandDataIssue(m)){
       const ec=-m.affinity.value,ev=ec-m.bandGap.value;
       const evidence=m.bandGap.evidence==='estimated'||m.affinity.evidence==='estimated'?'含估算参数':m.bandGap.evidence==='derived'||m.affinity.evidence==='derived'?'含推导参数':'实测参数';
       content+=`<rect x="${cx-bw/2}" y="${py(ec)}" width="${bw}" height="${py(ev)-py(ec)}" fill="${m.color}" opacity=".12"/><path d="M${cx-bw/2} ${py(ec)}h${bw} M${cx-bw/2} ${py(ev)}h${bw}" stroke="${m.color}" stroke-width="2"/><text class="plot-text" x="${cx}" y="${py(ec)-6}" text-anchor="middle">E꜀ ${number(ec)}</text><text class="plot-text" x="${cx}" y="${py(ev)+13}" text-anchor="middle">Eᵥ ${number(ev)}</text><text class="plot-text" x="${cx}" y="${py(ev)+27}" text-anchor="middle">${evidence}</text>`;
     } else if(['conductor','tco','semimetal'].includes(m.category)&&m.workFunction.value!==null){
       const ef=-m.workFunction.value;content+=`<path d="M${cx-bw/2} ${py(ef)}h${bw}" stroke="${m.color}" stroke-width="2" stroke-dasharray="5 3"/><text class="plot-text" x="${cx}" y="${py(ef)-8}" text-anchor="middle">Eꜰ ${number(ef)}</text><text class="plot-text" x="${cx}" y="${py(ef)+16}" text-anchor="middle">功函数 ${evidenceNames[m.workFunction.evidence]}</text>`;
-    } else content+=`<rect x="${cx-bw/2}" y="${y+45}" width="${bw}" height="85" fill="none" stroke="#718291" stroke-dasharray="3 5"/><text class="plot-text" x="${cx}" y="${y+88}" text-anchor="middle">带边缺失</text>`;
+    } else content+=`<rect x="${cx-bw/2}" y="${y+45}" width="${bw}" height="85" fill="none" stroke="#718291" stroke-dasharray="3 5"><title>${escapeHtml(bandDataIssue(m)||'没有真空参考带边')}</title></rect><text class="plot-text" x="${cx}" y="${y+88}" text-anchor="middle">带边缺失</text>`;
   });
-  const yt=[0,-2,-4,-6,-8,-10].map(e=>({pos:py(e),label:e}));
+  const yt=Array.from({length:6},(_,j)=>{const e=-j*(energyExtent-1)/5;return {pos:py(e),label:number(e)};});
   container.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="min-width:${W}px" role="img" aria-label="材料真空参考能带"><title>材料带边对齐近似，非接触后的自洽能带</title>${content}${axes(x,y,w,h,xt,yt,'','E (eV)')}</svg>`;
+}
+export function drawInterfaceBands(container,i,materials=[]) {
+  const W=390,H=240,x=62,y=28,w=300,h=160;
+  const ecA=i.gapA,evA=0,ecB=ecA+i.deltaEc,evB=i.deltaEv;
+  const min=Math.min(evA,evB)-.65,max=Math.max(ecA,ecB)+.65,py=e=>y+h-(e-min)/(max-min)*h;
+  const bands=[[i.a,ecA,evA,getMaterial(materials,i.a)?.color||'#55BFC4'],[i.b,ecB,evB,getMaterial(materials,i.b)?.color||'#E5A15A']];
+  const content=bands.map(([id,ec,ev,color],j)=>{
+    const cx=x+(j+.5)*w/2;
+    return `<path d="M${cx-38} ${py(ec)}h76 M${cx-38} ${py(ev)}h76" stroke="${color}" stroke-width="2"/><text class="plot-text" x="${cx}" y="${py(ec)-7}" text-anchor="middle">E<tspan baseline-shift="sub">c</tspan> ${ec.toFixed(2)}</text><text class="plot-text" x="${cx}" y="${py(ev)+17}" text-anchor="middle">E<tspan baseline-shift="sub">v</tspan> ${ev.toFixed(2)}</text>`;
+  }).join('');
+  const xt=bands.map(([id],j)=>({pos:x+(j+.5)*w/2,label:id}));
+  const yt=[0,1,2,3].filter(e=>e>=min&&e<=max).map(e=>({pos:py(e),label:e}));
+  container.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="界面相对带边"><title>价带参考 E_v(${escapeHtml(i.a)}) = 0；非真空参考，非接触后的自洽能带</title>${content}${axes(x,y,w,h,xt,yt,'','E (eV)')}</svg>`;
+}
+export function drawEquilibrium(container,result,quantity='bands') {
+  if(!result){container.innerHTML='';return;}
+  const W=Math.max(360,container.clientWidth||650),H=292,x=74,y=36,w=W-96,h=202;
+  let rows=result.rows,series,label,title;
+  if(quantity==='carriers'){
+    series=[['electronCm3','n','#55BFC4'],['holeCm3','p','#E5A15A']];label='log₁₀ n, p (cm⁻³)';title='Boltzmann 载流子分布';
+  }else if(quantity==='field'){
+    rows=result.fields;series=[['fieldVcm','E','#2F7FAE']];label='E (V/cm)';title='E = −dψ/dx';
+  }else{series=[['ecEv','Ec','#55BFC4'],['evEv','Ev','#E5A15A'],['efEv','EF','#4F565D']];label='E − EF (eV)';title='EF = 0 · 平衡费米参考';}
+  const value=(r,key)=>quantity==='carriers'?Math.log10(r[key]):r[key];
+  const values=rows.flatMap(r=>series.map(([key])=>value(r,key))),lo=Math.min(...values),hi=Math.max(...values),padding=Math.max((hi-lo)*.12,quantity==='field'?100:.12),min=lo-padding,max=hi+padding;
+  const end=result.rows.at(-1).xUm,px=v=>x+v/end*w,py=v=>y+h-(v-min)/(max-min)*h;
+  const xt=Array.from({length:5},(_,j)=>({pos:x+j*w/4,label:number(j*end/4)}));
+  const yt=Array.from({length:5},(_,j)=>{const v=min+j*(max-min)/4;return {pos:py(v),label:quantity==='field'?v.toExponential(1):v.toFixed(1)};});
+  let content='';
+  for(const [key,name,color]of series){
+    const d=rows.map((r,j)=>`${j?'L':'M'}${px(r.xUm).toFixed(2)} ${py(value(r,key)).toFixed(2)}`).join(' ');
+    content+=`<path data-series="${key}" d="${d}" stroke="${color}" stroke-width="2" fill="none"${key==='efEv'?' stroke-dasharray="5 3"':''}/>`;
+  }
+  const lp=result.config.pLengthUm,li=result.config.intrinsicLengthUm;
+  for(const [a,b,text]of [[0,lp,'p-Si'],...(li?[[lp,lp+li,'i-Si']]:[]),[lp+li,end,'n-Si']]){
+    if(a>0)content+=`<path d="M${px(a)} ${y}v${h}" stroke="#D9DEE3" stroke-dasharray="3 4"/>`;
+    content+=`<text class="plot-text" x="${px((a+b)/2)}" y="${y+17}" text-anchor="middle">${text}</text>`;
+  }
+  container.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="一维硅平衡${quantity==='bands'?'能带':quantity==='carriers'?'载流子分布':'电场'}"><title>独立 1D 模型，理想欧姆端部，非当前三维工艺结构性能</title>${axes(x,y,w,h,xt,yt,'x (μm)',label)}${content}<text class="plot-text" x="${x+w}" y="17" text-anchor="end">${title} · ${series.map(s=>s[1]).join(' / ')}</text></svg>`;
 }
 export function drawCurve(container,rows) {
   const W=Math.max(360,container.clientWidth||735),x=70,y=25,w=W-95,h=150,min=Math.min(...rows.map(r=>r.currentA)),max=Math.max(...rows.map(r=>r.currentA)),span=max-min||1;

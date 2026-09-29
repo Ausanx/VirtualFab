@@ -134,7 +134,7 @@ test('a developed etch mask opens only the FET source/drain dielectric windows',
 });
 
 test('default-band challenge reports residuals rather than treating Type-II as calibration', () => {
-  const rows = evaluateLiterature().bands.default;
+  const rows = evaluateLiterature().bands.legacy;
   for (const row of rows) {
     close(row.residualEv, row.predictedEv - row.referenceEv);
     assert.equal(row.status, Math.abs(row.residualEv) <= row.intervalEv ? 'within-reported-interval' : 'outside-reported-interval');
@@ -143,7 +143,8 @@ test('default-band challenge reports residuals rather than treating Type-II as c
   assert.ok(syntheticWrong.every(r => r.status === 'outside-reported-interval'));
   assert.ok(bandChecks({ type: 'unknown' }, 'missing').every(r => r.status === 'unavailable'));
   const p = createLiteratureProject('lee2014'), m = id => p.materials.find(m => m.id === id);
-  const forward = bandAlignment(m('MoS2'), m('WSe2')), reverse = bandAlignment(m('WSe2'), m('MoS2'));
+  const selections=[{a:'MoS2',b:'WSe2',profileId:'chiu2015-mos2-wse2',conditionsConfirmed:true}];
+  const forward = bandAlignment(m('MoS2'), m('WSe2'),selections,[.65,.7]), reverse = bandAlignment(m('WSe2'), m('MoS2'),selections,[.7,.65]);
   close(reverse.deltaEc, -forward.deltaEc);
   close(reverse.deltaEv, -forward.deltaEv);
   assert.equal(reverse.type, forward.type);
@@ -169,8 +170,9 @@ test('measured STS gaps do not supply missing vacuum affinities or fabricated PN
   assert.equal(m('WSe2').bandGap.value, 2.08);
   assert.equal(m('MoS2').affinity.value, null);
   assert.equal(bandAlignment(m('MoS2'), m('WSe2')).type, 'unknown');
-  const result = analyze(state, p.materials);
+  const result = analyze(state, p.materials,p.interfaceSelections);
   assert.ok(result.structures.some(s => s.code === 'HETERO'));
   assert.ok(!result.structures.some(s => s.code === 'PN'));
-  assert.ok(result.interfaces.every(i => i.type === 'unknown'));
+  assert.ok(result.interfaces.some(i=>i.type==='II'&&i.reference==='relative-interface'));
+  assert.equal(analyze(state,p.materials).interfaces[0].type,'unknown');
 });

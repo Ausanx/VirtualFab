@@ -5,11 +5,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { publicAsset } from './server.mjs';
 import { validateProject } from './src/engine.js';
+import { solveEquilibrium } from './solver/run.mjs';
 
 const origin='virtualfab://app';
 let window,currentPath=null;
+let solverBusy=false;
 const projectFilter=[{name:'VirtualFab 项目',extensions:['json']}];
 function fromWindow(event){if(event.sender!==window?.webContents)throw Error('无效的项目文件请求。');}
+ipcMain.handle('physics:equilibrium',async(event,config)=>{
+  fromWindow(event);
+  if(solverBusy)throw Error('上一次平衡求解尚未结束。');
+  solverBusy=true;
+  try{return await solveEquilibrium(config,{resourcesPath:app.isPackaged?process.resourcesPath:undefined});}
+  finally{solverBusy=false;}
+});
 ipcMain.handle('project:open',async event=>{
   fromWindow(event);
   const chosen=await dialog.showOpenDialog(window,{title:'打开项目',properties:['openFile'],filters:projectFilter});
@@ -40,6 +49,17 @@ ipcMain.handle('project:save',async (event,project,saveAs=false)=>{
   return {path:target};
 });
 ipcMain.handle('project:reset',event=>{fromWindow(event);currentPath=null;});
+ipcMain.handle('data:export-csv',async(event,name,content)=>{
+  fromWindow(event);
+  if(typeof name!=='string'||!/^[-a-z0-9]+\.csv$/i.test(name)||typeof content!=='string'||Buffer.byteLength(content)>5_000_000)throw Error('CSV 导出数据无效或超过 5 MB。');
+  const chosen=await dialog.showSaveDialog(window,{title:'导出 CSV',defaultPath:path.join(app.getPath('documents'),name),filters:[{name:'CSV 数据',extensions:['csv']}]});
+  if(chosen.canceled||!chosen.filePath)return null;
+  let target=chosen.filePath;if(path.extname(target).toLowerCase()!=='.csv')target+='.csv';
+  const temporary=`${target}.${randomUUID()}.tmp`;
+  try{await writeFile(temporary,content,{flag:'wx'});await rename(temporary,target);}
+  finally{await rm(temporary,{force:true}).catch(()=>{});}
+  return {path:target};
+});
 protocol.registerSchemesAsPrivileged([{scheme:'virtualfab',privileges:{standard:true,secure:true,supportFetchAPI:true}}]);
 
 if(!app.requestSingleInstanceLock())app.quit();

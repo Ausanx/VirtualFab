@@ -320,6 +320,47 @@ p { line-height: 1.5; }
 #slice-plot { padding: 0 8px; }
 #curve-plot svg { display: block; }
 #band-diagram svg { display: block; }
+.workspace-actions { display: flex; gap: 5px; min-width: 0; }
+.analysis-modes { display: flex; gap: 0; border-bottom: 1px solid var(--line); margin: 0 0 12px; }
+.analysis-modes button { border: 0; border-radius: 0; border-bottom: 2px solid transparent; padding: 6px 10px; }
+.analysis-modes button[aria-selected=true] { border-bottom-color: var(--accent); color: var(--accent); }
+.physics-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 12px; margin: 10px 0; }
+.physics-form>label, .interface-controls>label { display: grid; gap: 5px; font-size: 12px; min-width: 0; }
+.physics-form input, .physics-form select { width: 100%; }
+.physics-actions { grid-column: 1/-1; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.physics-actions label { display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12px; }
+.physics-actions select { width: 132px; }
+#equilibrium-status { margin: 10px 0; font-size: 12px; color: var(--secondary); overflow-wrap: anywhere; }
+#equilibrium-settings { font-size: 12px; margin: 8px 0 12px; }
+#equilibrium-settings summary { cursor: pointer; color: var(--secondary); }
+.physics-conditions, .interface-conditions { font-size: 12px; color: var(--secondary); margin: 8px 0; }
+.physics-conditions summary, .interface-conditions summary { cursor: pointer; }
+.physics-conditions p, .interface-conditions p { margin-top: 6px; }
+#equilibrium-plot { min-height: 0; }
+#equilibrium-plot svg { display: block; width: 100%; min-width: 360px; height: auto; }
+.interface-detail { border-top: 1px solid var(--line); padding: 8px 0 12px; }
+.interface-detail .interface-row { border: 0; flex-wrap: wrap; padding: 0 0 5px; }
+.interface-controls { display: grid; gap: 8px; margin: 8px 0; }
+.interface-controls .check-label { display: flex; align-items: center; }
+.interface-controls select { width: 100%; }
+.interface-relative-label { margin: 12px 0 2px; color: var(--secondary); font-size: 12px; }
+.interface-band-plot svg { display: block; width: 390px; max-width: 100%; height: auto; }
+.data-table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; margin: 8px 0; }
+.data-table th, .data-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; }
+.data-table th:first-child, .data-table td:first-child { text-align: left; }
+.data-table th { background: var(--panel); font-weight: 600; }
+.data-table caption { text-align: left; margin: 6px 0; color: var(--secondary); }
+.table-scroll { overflow: auto; }
+#grid-dialog { width: min(680px,94vw); }
+#grid-dialog .data-table { min-width: 390px; }
+.plot-text, .plot-label { font-family: Arial,"Microsoft YaHei",sans-serif; }
+@media (max-width: 560px) {
+  .workspace-heading { flex-wrap: wrap; height: auto; min-height: 36px; }
+  .workspace-actions { margin-left: auto; }
+  #equilibrium-plot { overflow-x: auto; }
+  .physics-form { grid-template-columns: 1fr; }
+  .physics-actions label { margin-left: 0; }
+}
 @media (max-width: 560px) {
   .brand strong { font-size: 15px; }
   .workspace-heading h1 { font-size: 16px; }

@@ -1,5 +1,7 @@
-import { getMaterial } from './materials.js';
+import { getMaterial,gapKindNames } from './materials.js';
 import { processTypes, patterns } from './recipes.js';
+import { interfaceKey,profilesFor } from './interfaces.js';
+import { validateEquilibrium } from './equilibrium.js';
 
 const EPS=1e-8;
 const finite=(x,min,max)=>typeof x==='number'&&Number.isFinite(x)&&x>=min&&x<=max;
@@ -21,8 +23,19 @@ export function validateProject(p) {
       if(v.evidence==='measured'&&(typeof v.source!=='string'||!v.source.trim()||typeof v.note!=='string'||!v.note.trim())) throw Error('实测参数必须填写来源和测量条件。');
       if(v.source!==undefined&&(typeof v.source!=='string'||v.source.length>2000)) throw Error('参数来源无效。');
       if(v.note!==undefined&&(typeof v.note!=='string'||v.note.length>2000)) throw Error('参数适用条件无效。');
+      if(key==='bandGap'&&v.kind!==undefined&&!Object.hasOwn(gapKindNames,v.kind))throw Error('带隙类型无效。');
+      if(key==='affinity'&&v.reference!==undefined&&!['vacuum','unspecified'].includes(v.reference))throw Error('亲和能只能使用真空参考；相对带阶应使用界面档案。');
     }
   }
+  if(p.interfaceSelections!==undefined){
+    if(!Array.isArray(p.interfaceSelections)||p.interfaceSelections.length>100)throw Error('界面档案选择无效。');
+    const pairs=new Set();
+    for(const s of p.interfaceSelections){
+      if(!s||!ids.has(s.a)||!ids.has(s.b)||s.a===s.b||typeof s.conditionsConfirmed!=='boolean'||!profilesFor(s.a,s.b).some(f=>f.id===s.profileId))throw Error('界面档案与材料组合不匹配。');
+      const key=interfaceKey(s.a,s.b);if(pairs.has(key))throw Error('同一材料界面不能选择多个档案。');pairs.add(key);
+    }
+  }
+  if(p.equilibrium!==undefined)validateEquilibrium(p.equilibrium);
   if(!Array.isArray(p.steps)||p.steps.length<1||p.steps.length>150) throw Error('工艺步骤需为 1–150。');
   const stepIds=new Set();
   for(const s of p.steps) {
@@ -67,6 +80,33 @@ export function inPattern(x,y,p) {
 export function cellPosition(index,state) {
   const dx=state.sizeUm/state.resolution;
   return {x:(index%state.resolution+.5)*dx-state.sizeUm/2,y:(Math.floor(index/state.resolution)+.5)*dx-state.sizeUm/2};
+}
+export function minimumFeature(p) {
+  if(p.pattern==='all')return null;
+  const widths=[p.widthUm,p.lengthUm];
+  if(p.pattern==='contacts')widths.push((p.lengthUm-p.gapUm)/2,...(p.gapUm>0?[p.gapUm]:[]));
+  if(p.pattern?.startsWith('array')&&p.count>1&&p.pitchUm>p.widthUm)widths.push(p.pitchUm-p.widthUm);
+  return Math.min(...widths);
+}
+export function geometryMetrics(state) {
+  const area=(state.sizeUm/state.resolution)**2,items=new Map();
+  for(const cell of state.cells){
+    const seen=new Set();
+    for(const l of cell){
+      if(['support','resist'].includes(l.role)||l.z0<0)continue;
+      const item=items.get(l.stepId)||{stepId:l.stepId,material:l.material,areaUm2:0,volumeUm3:0};
+      if(!seen.has(l.stepId)){item.areaUm2+=area;seen.add(l.stepId);}
+      item.volumeUm3+=(l.z1-l.z0)*area/1000;items.set(l.stepId,item);
+    }
+  }
+  return [...items.values()];
+}
+export function compareGrids(project,through=project.steps.length-1) {
+  const resolutions=[...new Set([Math.max(8,Math.floor(project.resolution/2)),project.resolution,Math.min(80,project.resolution*2)])].sort((a,b)=>a-b);
+  return resolutions.map(resolution=>{
+    const state=simulate({...project,resolution},through);
+    return {resolution,dxUm:project.sizeUm/resolution,stoppedAt:state.stoppedAt,metrics:geometryMetrics(state),warnings:state.diagnostics.filter(d=>['SUBGRID','EMPTY_MASK','EMPTY_TRANSFER'].includes(d.code))};
+  });
 }
 export function simulate(project,through=project.steps.length-1) {
   validateProject(project);
@@ -124,7 +164,8 @@ export function simulate(project,through=project.steps.length-1) {
           if(layer) {layer.exposed=Boolean(layer.exposed||(pr.tone==='positive'?opening:!opening));if(opening)openingCount++;}
         });
         if(openingCount===0)warn('EMPTY_MASK','开口未覆盖采样中心；请检查偏移、尺寸或提高采样分辨率。',s,index);
-        if(Math.min(p.widthUm,p.lengthUm)<2*state.sizeUm/state.resolution)warn('SUBGRID','特征宽度小于两列采样间距，几何结果不可靠。',s,index);
+        const feature=minimumFeature(p);
+        if(feature!==null&&feature<2*state.sizeUm/state.resolution)warn('SUBGRID','开口、间隙或阵列间距小于两列采样间距，几何结果不可靠。',s,index);
         state.activeResist.exposed=true;state.activeResist.postBaked=false;state.exposure={...p};state.lastPattern={stepId:s.id,openings};
       } else if(s.type==='develop') {
         if(!state.activeResist?.exposed)throw Error('显影前需要完成曝光。');
@@ -142,6 +183,10 @@ export function simulate(project,through=project.steps.length-1) {
           const top=c.at(-1)?.z1||0;
           c.push({material:m.id,z0:top,z1:top+p.thicknessNm,stepId:s.id,role:role==='contacts'?(pos.x<0?'source':'drain'):role,doping:m.category==='semiconductor'?p.doping:'unknown'});
         });
+        if(s.type==='transfer'){
+          if(!state.cells.some(c=>c.some(l=>l.stepId===s.id)))warn('EMPTY_TRANSFER','转移区域未覆盖采样中心；请检查偏移、尺寸或提高采样分辨率。',s,index);
+          if(Math.min(p.widthUm,p.lengthUm)<2*state.sizeUm/state.resolution)warn('SUBGRID','转移薄膜特征小于两列采样间距，几何结果不可靠。',s,index);
+        }
         if(s.type==='deposit'&&['ALD','CVD','溅射'].includes(p.method))warn('TOP_SURFACE_APPROX','采用顶表面膜厚近似；侧壁覆盖、ALD 成核与溅射损伤尚未求解。',s,index,'info');
         if(state.activeResist&&s.type==='deposit') {
           if(!['热蒸镀','电子束蒸镀'].includes(p.method))state.activeResist.nonDirectionalDeposit=true;
@@ -207,7 +252,11 @@ export function contactGraph(state) {
     }
   }
   const nodes=new Map(),edges=new Map();
-  all.forEach((layer,i)=>{const id=find(i);if(!nodes.has(id))nodes.set(id,{...layer,id,segments:0});nodes.get(id).segments++;});
+  all.forEach((layer,i)=>{
+    const id=find(i),thickness=layer.z1-layer.z0;
+    if(!nodes.has(id))nodes.set(id,{...layer,id,segments:0,minThicknessNm:thickness,maxThicknessNm:thickness});
+    const node=nodes.get(id);node.segments++;node.minThicknessNm=Math.min(node.minThicknessNm,thickness);node.maxThicknessNm=Math.max(node.maxThicknessNm,thickness);
+  });
   for(const [a,b]of rawEdges) {const x=find(a),y=find(b);if(x!==y)edges.set([x,y].sort((u,v)=>u-v).join(':'),[x,y]);}
   const sandwiches=new Set();
   for(const ids of cellIds)for(let i=1;i<ids.length-1;i++) {

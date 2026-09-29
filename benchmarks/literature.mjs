@@ -1,7 +1,7 @@
 import { materials } from '../src/materials.js';
 import { step } from '../src/recipes.js';
 import { simulate } from '../src/engine.js';
-import { analyze, bandAlignment } from '../src/physics.js';
+import { analyze, bandAlignment,alignmentFromEdges } from '../src/physics.js';
 
 export const references = {
   radisavljevic2011: {
@@ -104,10 +104,11 @@ export function createLiteratureProject(key) {
     const measured = references.chiu2015.measurements;
     for (const [id, value] of [['MoS2', measured.mos2Gap], ['WSe2', measured.wse2Gap]]) {
       const m = p.materials.find(m => m.id === id);
-      m.bandGap = { value, unit: 'eV', evidence: 'measured', source: 'https://doi.org/10.1038/ncomms8666', note: 'Monolayer on HOPG; STS at 77 K, quasiparticle gap, reported error +/-0.10 eV. Not an optical gap.' };
+      m.bandGap = { value, unit: 'eV', kind:'quasiparticle', evidence: 'measured', source: 'https://doi.org/10.1038/ncomms8666', note: 'Monolayer on HOPG; STS at 77 K, quasiparticle gap, reported error +/-0.10 eV. Not an optical gap.' };
       m.affinity = missing();
       m.polarity = 'unknown';
     }
+    p.interfaceSelections=[{a:'MoS2',b:'WSe2',profileId:'chiu2015-mos2-wse2',conditionsConfirmed:true}];
   } else throw Error(`Unknown literature case: ${key}`);
   return p;
 }
@@ -136,19 +137,21 @@ export function bandChecks(prediction, kind) {
   });
 }
 
-// The artificial common reference cancels in offsets; these are NOT electron affinities.
+// A common shift of the HOPG reference cancels; no artificial affinities are created.
 export function stsReferenceAlignment(referenceEv = 4) {
   const m = references.chiu2015.measurements;
-  const relative = (ec, ev) => ({ bandGap: { value: ec - ev, evidence: 'measured' }, affinity: { value: referenceEv - ec, evidence: 'derived' } });
-  return bandAlignment(relative(m.mos2Ec, m.mos2Ev), relative(m.wse2Ec, m.wse2Ev));
+  const relative = (ec, ev) => ({ec:ec-referenceEv,ev:ev-referenceEv});
+  return alignmentFromEdges(relative(m.mos2Ec,m.mos2Ev),relative(m.wse2Ec,m.wse2Ev));
 }
 
 export function evaluateLiterature() {
   const cases = Object.keys(references).map(key => {
-    const p = createLiteratureProject(key), state = simulate(p), result = analyze(state, p.materials);
+    const p = createLiteratureProject(key), state = simulate(p), result = analyze(state, p.materials,p.interfaceSelections);
     return { key, stoppedAt: state.stoppedAt, codes: [...new Set(result.structures.map(s => s.code))], diagnostics: [...new Set(state.diagnostics.map(d => d.code))] };
   });
   const mos2 = materials.find(m => m.id === 'MoS2'), wse2 = materials.find(m => m.id === 'WSe2');
+  const legacy=alignmentFromEdges({ec:-4.2,ev:-6},{ec:-3.9,ev:-5.5});
+  const profile=bandAlignment(mos2,wse2,[{a:'MoS2',b:'WSe2',profileId:'chiu2015-mos2-wse2',conditionsConfirmed:true}],[.65,.7]);
   const grid = [32, 40, 64, 80].map(resolution => {
     const p = createLiteratureProject('lee2014');
     p.resolution = resolution;
@@ -161,7 +164,7 @@ export function evaluateLiterature() {
   });
   return {
     schemaVersion: 1, references, cases, grid,
-    bands: { direction: 'MoS2 -> WSe2; E_b - E_a', defaultAlignment: bandAlignment(mos2, wse2), default: bandChecks(bandAlignment(mos2, wse2), 'default-library-challenge'), stsConsistency: bandChecks(stsReferenceAlignment(), 'shared-data-method-consistency'), independentReplication: false },
-    unsupported: ['接触后的自洽能带弯曲、偏压或栅压引起的载流子分布', 'FET 转移/输出曲线，ALD 或退火引起的迁移率变化', '层间复合、光电流与 EQE', '双层胶下切轮廓、曝光剂量响应、ALD 侧壁覆盖与生长动力学'],
+    bands: { direction: 'MoS2 -> WSe2; E_b - E_a', defaultAlignment: bandAlignment(mos2, wse2), default: bandChecks(bandAlignment(mos2, wse2), 'default-library-withheld'), legacy:bandChecks(legacy,'archived-optical-gap-mixed-estimate'), profile:bandChecks(profile,'interface-profile-data-application'), stsConsistency: bandChecks(stsReferenceAlignment(), 'shared-data-method-consistency'), independentReplication: false },
+    unsupported: ['原子层异质结的接触后自洽能带、偏压或栅压引起的载流子分布（新增 1D 平衡求解仅适用 300 K 体硅 PN/PIN）', 'FET 转移/输出曲线，ALD 或退火引起的迁移率变化', '层间复合、光电流与 EQE', '双层胶下切轮廓、曝光剂量响应、ALD 侧壁覆盖与生长动力学'],
   };
 }

@@ -1,17 +1,26 @@
-import { isConductor,getMaterial } from './materials.js';
+import { isConductor,getMaterial,bandDataIssue } from './materials.js';
 import { contactGraph } from './engine.js';
+import { selectedProfile,interfaceKey } from './interfaces.js';
 
 const known=v=>v?.value!==null&&Number.isFinite(v?.value);
-export function bandAlignment(a,b) {
-  if(![a?.bandGap,a?.affinity,b?.bandGap,b?.affinity].every(known))return {type:'unknown',note:'带隙或电子亲和能缺失，无法计算带阶。'};
+function alignmentType(ca,va,cb,vb) {
+  if(ca<vb||cb<va)return 'III';
+  if((ca<=cb&&va>=vb)||(cb<=ca&&vb>=va))return 'I';
+  return 'II';
+}
+export function alignmentFromEdges(a,b) {
+  return {type:alignmentType(a.ec,a.ev,b.ec,b.ev),deltaEc:b.ec-a.ec,deltaEv:b.ev-a.ev};
+}
+export function bandAlignment(a,b,selection=[],thicknesses=[]) {
+  const profile=selectedProfile(a?.id,b?.id,selection,thicknesses);
+  if(profile){if(profile.type==='unknown')return profile;return {...profile,type:alignmentType(profile.gapA,0,profile.gapA+profile.deltaEc,profile.deltaEv)};}
+  const issue=bandDataIssue(a)||bandDataIssue(b);
+  if(issue)return {type:'unknown',note:issue+'，未计算定量带阶。'};
   const ca=-a.affinity.value,va=ca-a.bandGap.value,cb=-b.affinity.value,vb=cb-b.bandGap.value;
   const uncertainty=[a.bandGap,a.affinity,b.bandGap,b.affinity].some(v=>v.evidence==='estimated');
-  let type='II';
-  if(ca<vb||cb<va)type='III';
-  else if((ca<=cb&&va>=vb)||(cb<=ca&&vb>=va))type='I';
-  return {type,deltaEc:cb-ca,deltaEv:vb-va,estimated:uncertainty,note:'真空能级对齐近似；不含界面偶极、钉扎与自洽电荷重排。'};
+  return {type:alignmentType(ca,va,cb,vb),deltaEc:cb-ca,deltaEv:vb-va,reference:'vacuum',estimated:uncertainty,note:'真空能级对齐近似；不含界面偶极、钉扎与自洽电荷重排。'};
 }
-export function analyze(state,materials) {
+export function analyze(state,materials,selections=[]) {
   const graph=contactGraph(state),nodeById=new Map(graph.nodes.map(n=>[n.id,n])),neighbors=new Map(graph.nodes.map(n=>[n.id,new Set()]));
   graph.edges.forEach(([a,b])=>{neighbors.get(a).add(b);neighbors.get(b).add(a);});
   const mat=n=>getMaterial(materials,n.material),sem=n=>mat(n)?.category==='semiconductor'&&n.role!=='support'&&n.role!=='gate';
@@ -33,21 +42,25 @@ export function analyze(state,materials) {
   for(const [aid,bid]of graph.edges) {
     const a=nodeById.get(aid),b=nodeById.get(bid);
     if(sem(a)&&sem(b)) {
-      const align=bandAlignment(mat(a),mat(b));
-      const pair=JSON.stringify([a.material,b.material].sort());
+      const align=bandAlignment(mat(a),mat(b),selections,[[a.minThicknessNm,a.maxThicknessNm],[b.minThicknessNm,b.maxThicknessNm]]);
+      const pair=interfaceKey(a.material,b.material);
       if(!interfaceKeys.has(pair)){interfaces.push({a:a.material,b:b.material,...align});interfaceKeys.add(pair);}
+      else if(align.type==='unknown'){
+        const index=interfaces.findIndex(i=>interfaceKey(i.a,i.b)===pair),previous=interfaces[index];
+        interfaces[index]={a:previous.a,b:previous.b,type:'unknown',profileId:align.profileId,note:align.note};
+      }
       const pn=[a.doping,b.doping].sort().join('')==='np';
       const samepol=a.doping===b.doping&&['n','p'].includes(a.doping);
       if(pn)add('PN',a.material===b.material?'PN 同质结候选':'PN 异质结候选',[a,b],['p 型与 n 型区域实际接触；载流子类型来自配方设定。'],['实际载流子浓度与温度','界面陷阱和接触后电势分布']);
       else if(samepol)add('ISOTYPE',`${a.doping}–${b.doping} 同型结候选`,[a,b],['两侧载流子类型相同。'],['掺杂浓度与实际带阶']);
-      if(a.material!==b.material)add('HETERO',align.type==='unknown'?'异质界面 · 能带类型未知':`Type-${align.type} 异质界面（估算）`,[a,b],[align.note],align.type==='unknown'?['带隙与电子亲和能']:['界面实测带阶']);
+      if(a.material!==b.material)add('HETERO',align.type==='unknown'?'异质界面 · 能带类型未知':`Type-${align.type} 异质界面（${align.reference==='relative-interface'?'文献档案':'真空近似'}）`,[a,b],[align.note],align.type==='unknown'?['适用的电子带隙、亲和能或界面档案']:align.reference==='relative-interface'?['当前样品的独立验证']:['界面实测带阶']);
     } else if((metal(a)&&sem(b))||(metal(b)&&sem(a))) {
       const c=metal(a)?a:b,s=sem(a)?a:b,m=mat(c),sm=mat(s);
       let note='功函数或半导体带边缺失，接触类型未确定。';
-      if(known(m.workFunction)&&known(sm.affinity)&&known(sm.bandGap)) {
+      if(known(m.workFunction)&&!bandDataIssue(sm)) {
         const electron=m.workFunction.value-sm.affinity.value,hole=sm.bandGap.value-electron;
         note=`理想电子势垒 ${electron.toFixed(2)} eV；空穴势垒 ${hole.toFixed(2)} eV。负值仅指理想带边关系。`;
-      }
+      } else if(bandDataIssue(sm))note=bandDataIssue(sm)+'，未计算理想接触势垒。';
       add('MS','导体–半导体接触候选',[c,s],[note],['费米能级钉扎、界面残留和接触输运模型']);
     }
   }
@@ -90,7 +103,7 @@ export function analyze(state,materials) {
     if([...channels.values()].some(fs=>fs.some(f=>f.title.startsWith('底'))&&fs.some(f=>f.title.startsWith('顶'))))
       structures.push({code:'DUAL_GATE',title:'双栅 FET 拓扑候选',materials:[],stepIds:[],evidence:['同一沟道检测到顶栅与底栅。'],missing:['双栅耦合模型'],status:'条件待核实'});
   }
-  return {structures,interfaces,graph,notes:['结构识别与功能预测分开；候选结构不保证整流、记忆或 DVS 功能。','材料带边只采用同一真空参考；实际能带弯曲需要边界条件和静电求解。']};
+  return {structures,interfaces,graph,notes:['结构识别与功能预测分开；候选结构不保证整流、记忆或 DVS 功能。','真空参考与文献相对带边分别显示；平衡求解采用独立 1D 硅模型。']};
 }
 
 export function diodeCurve({saturationA,ideality,temperatureK,minV,maxV,photocurrentA}) {

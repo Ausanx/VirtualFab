@@ -16,14 +16,16 @@
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "kind": "transport"
       },
       "affinity": {
         "value": 4.05,
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "reference": "vacuum"
       },
       "workFunction": {
         "value": null,
@@ -46,14 +48,16 @@
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "kind": "optical"
       },
       "affinity": {
         "value": 4.2,
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "reference": "vacuum"
       },
       "workFunction": {
         "value": null,
@@ -76,14 +80,16 @@
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "kind": "optical"
       },
       "affinity": {
         "value": 4,
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "reference": "vacuum"
       },
       "workFunction": {
         "value": null,
@@ -106,14 +112,16 @@
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "kind": "optical"
       },
       "affinity": {
         "value": 3.9,
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "reference": "vacuum"
       },
       "workFunction": {
         "value": null,
@@ -136,14 +144,16 @@
         "unit": "eV",
         "evidence": "missing",
         "note": "尚无经核实、适用于本工艺的数值",
-        "source": ""
+        "source": "",
+        "kind": "unspecified"
       },
       "affinity": {
         "value": null,
         "unit": "eV",
         "evidence": "missing",
         "note": "尚无经核实、适用于本工艺的数值",
-        "source": ""
+        "source": "",
+        "reference": "vacuum"
       },
       "workFunction": {
         "value": null,
@@ -166,14 +176,16 @@
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "kind": "transport"
       },
       "affinity": {
         "value": 4.5,
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "reference": "vacuum"
       },
       "workFunction": {
         "value": null,
@@ -406,7 +418,8 @@
         "unit": "eV",
         "evidence": "estimated",
         "note": "光学带隙示例，不等同于输运带隙",
-        "source": ""
+        "source": "",
+        "kind": "optical"
       },
       "affinity": {
         "value": null,

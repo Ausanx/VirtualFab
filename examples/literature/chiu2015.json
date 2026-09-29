@@ -16,14 +16,16 @@
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "kind": "transport"
       },
       "affinity": {
         "value": 4.05,
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "reference": "vacuum"
       },
       "workFunction": {
         "value": null,
@@ -44,6 +46,7 @@
       "bandGap": {
         "value": 2.15,
         "unit": "eV",
+        "kind": "quasiparticle",
         "evidence": "measured",
         "source": "https://doi.org/10.1038/ncomms8666",
         "note": "Monolayer on HOPG; STS at 77 K, quasiparticle gap, reported error +/-0.10 eV. Not an optical gap."
@@ -76,14 +79,16 @@
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "kind": "optical"
       },
       "affinity": {
         "value": 4,
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "reference": "vacuum"
       },
       "workFunction": {
         "value": null,
@@ -104,6 +109,7 @@
       "bandGap": {
         "value": 2.08,
         "unit": "eV",
+        "kind": "quasiparticle",
         "evidence": "measured",
         "source": "https://doi.org/10.1038/ncomms8666",
         "note": "Monolayer on HOPG; STS at 77 K, quasiparticle gap, reported error +/-0.10 eV. Not an optical gap."
@@ -136,14 +142,16 @@
         "unit": "eV",
         "evidence": "missing",
         "note": "尚无经核实、适用于本工艺的数值",
-        "source": ""
+        "source": "",
+        "kind": "unspecified"
       },
       "affinity": {
         "value": null,
         "unit": "eV",
         "evidence": "missing",
         "note": "尚无经核实、适用于本工艺的数值",
-        "source": ""
+        "source": "",
+        "reference": "vacuum"
       },
       "workFunction": {
         "value": null,
@@ -166,14 +174,16 @@
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "kind": "transport"
       },
       "affinity": {
         "value": 4.5,
         "unit": "eV",
         "evidence": "estimated",
         "note": "示例估算；须按膜厚、晶相和制备条件校准",
-        "source": ""
+        "source": "",
+        "reference": "vacuum"
       },
       "workFunction": {
         "value": null,
@@ -406,7 +416,8 @@
         "unit": "eV",
         "evidence": "estimated",
         "note": "光学带隙示例，不等同于输运带隙",
-        "source": ""
+        "source": "",
+        "kind": "optical"
       },
       "affinity": {
         "value": null,
@@ -928,5 +939,13 @@
         "The project is a simplified transferred stack on Si with approximately 2 nm native oxide, not a reconstruction of STM or XPS instrumentation."
       ]
     }
-  }
+  },
+  "interfaceSelections": [
+    {
+      "a": "MoS2",
+      "b": "WSe2",
+      "profileId": "chiu2015-mos2-wse2",
+      "conditionsConfirmed": true
+    }
+  ]
 }

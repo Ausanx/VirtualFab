@@ -3,8 +3,8 @@ const estimate = (value, unit, note='示例估算；须按膜厚、晶相和制�
 const missing = unit => ({ value:null, unit, evidence:'missing', note:'尚无经核实、适用于本工艺的数值', source:'' });
 const semiconductor = (id, name, color, polarity, gap, affinity, reference, note='') => ({
   id,name,category:'semiconductor',color,polarity,
-  bandGap:gap===null?missing('eV'):estimate(gap,'eV'),
-  affinity:affinity===null?missing('eV'):estimate(affinity,'eV'),
+  bandGap:{...(gap===null?missing('eV'):estimate(gap,'eV')),kind:['MoS2','WS2','WSe2'].includes(id)?'optical':['Si','Te'].includes(id)?'transport':'unspecified'},
+  affinity:{...(affinity===null?missing('eV'):estimate(affinity,'eV')),reference:'vacuum'},
   workFunction:missing('eV'), reference, note,
 });
 const conductor = (id,name,color,wf,reference='') => ({id,name,category:'conductor',color,polarity:'unknown',bandGap:missing('eV'),affinity:missing('eV'),workFunction:estimate(wf,'eV','表面状态相关的示例功函数；非实测接触势垒'),reference,note:''});
@@ -22,7 +22,7 @@ export const materials = [
   conductor('Au','金 Au','#E5A15A',5.1), conductor('Ti','钛 Ti','#8496A6',4.33),
   conductor('Al','铝 Al','#B3BEC6',4.28),conductor('Pt','铂 Pt','#B8B8AD',5.65),
   conductor('Pd','钯 Pd','#98A3AD',5.12),conductor('W','钨 W','#798188',4.55),
-  {...conductor('ITO','氧化铟锡 ITO','#95CAD5',4.7,'https://doi.org/10.1002/aelm.201600529'),category:'tco',bandGap:estimate(3.7,'eV','光学带隙示例，不等同于输运带隙'),note:'透明导电氧化物；功函数、电阻率和透过率依赖氧分压、Sn 含量、厚度与退火。'},
+  {...conductor('ITO','氧化铟锡 ITO','#95CAD5',4.7,'https://doi.org/10.1002/aelm.201600529'),category:'tco',bandGap:{...estimate(3.7,'eV','光学带隙示例，不等同于输运带隙'),kind:'optical'},note:'透明导电氧化物；功函数、电阻率和透过率依赖氧分压、Sn 含量、厚度与退火。'},
   dielectric('SiO2','二氧化硅 SiO₂','#B5C5CF',9,3.9),
   dielectric('Al2O3','氧化铝 Al₂O₃','#77A8C4',8.8,9),
   dielectric('HfO2','氧化铪 HfO₂','#4B94BD',5.8,20),
@@ -37,5 +37,13 @@ export const materials = [
 ];
 export const categoryNames = {semiconductor:'半导体',conductor:'金属',tco:'透明导体',semimetal:'半金属',dielectric:'介质',substrate:'衬底',resist:'光刻胶'};
 export const evidenceNames = {measured:'实测',derived:'推导',estimated:'估算',missing:'缺失'};
+export const gapKindNames = {unspecified:'未确定类型',optical:'光学带隙',quasiparticle:'准粒子带隙',transport:'输运带隙'};
+export function bandDataIssue(m) {
+  if(!['transport','quasiparticle'].includes(m?.bandGap?.kind))return m?.bandGap?.kind==='optical'?'光学带隙不能直接作为电子带隙':'带隙类型未确定';
+  if(m?.affinity?.reference!=='vacuum')return '电子亲和能未确认为真空参考';
+  if(![m.bandGap,m.affinity].every(p=>p.value!==null&&Number.isFinite(p.value)))return '电子带隙或电子亲和能缺失';
+  if(m.bandGap.value<=0)return '电子带隙需为正值';
+  return '';
+}
 export const isConductor = m => ['conductor','tco','semimetal'].includes(m?.category);
 export const getMaterial = (items,id) => items.find(m=>m.id===id);
