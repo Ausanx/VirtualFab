@@ -26,7 +26,7 @@ function metal(name,pattern,params={}) {
 function etchMask(name,mask,params) {
   return [step('coat',{},`${name} · 涂胶`),step('bake',{temperatureC:150},`${name} · 软烘`),step('expose',mask,`${name} · 曝光`),step('bake',{temperatureC:100},`${name} · 曝光后烘烤`),step('develop',{durationS:17}),step('etch',params,name),step('strip')];
 }
-export const templateNames={crossbar:'二端交叉阵列',backgate:'全局底栅晶体管',topgate:'局部顶栅晶体管',pn:'Te / InON 异质结',blank:'空白工艺'};
+export const templateNames={crossbar:'二端交叉阵列',backgate:'全局底栅晶体管',topgate:'局部顶栅晶体管',pn:'异质结',blank:'空白工艺'};
 export function createProject(template='crossbar') {
   let steps=[step('substrate',{backgate:template==='backgate'}),step('dice'),step('clean')];
   if(template==='crossbar') steps.push(

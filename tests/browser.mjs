@@ -25,6 +25,12 @@ try {
   };
   await page.goto(url);
   await page.locator('#three-view canvas').waitFor();
+  assert.equal(await page.locator('#template option[value="pn"]').innerText(),'异质结');
+  await page.locator('#new-project').click();
+  assert.match(await page.locator('#confirm-title').innerText(),/新建项目/);
+  await page.locator('#confirm-ok').click();
+  assert.equal((await saved()).steps.length,25);
+  assert.equal(await page.locator('#save-status').innerText(),'尚未保存到文件');
   await page.setViewportSize({width:1440,height:920});
   assert.ok((await page.locator('#three-view').boundingBox()).height>=300,'desktop 3D workspace must remain usable');
   await page.screenshot({path:'artifacts/desktop-layout.png'});
@@ -153,7 +159,7 @@ try {
 
   // Export/import round trip, invalid import isolation and the manual CSV model.
   const exportEvent=page.waitForEvent('download');
-  await page.locator('#export-project').click();
+  await page.locator('#save-project').click();
   const exported=await exportEvent;
   await exported.saveAs('artifacts/browser-project.json');
   const exportedData=JSON.parse(await readFile('artifacts/browser-project.json','utf8'));

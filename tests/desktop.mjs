@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, readFile, rm } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { _electron as electron } from 'playwright';
 
@@ -36,30 +36,64 @@ try {
   await page.locator('#confirm-ok').click();
   await page.locator('#project-name').fill('桌面持久化验收');
   await page.locator('#project-name').press('Tab');
-  assert.equal(await page.locator('#save-status').innerText(),'已保存到本机');
-  const exportedPath=path.resolve(`artifacts/desktop-export-${process.pid}.json`);
-  await first.app.evaluate(({session},target)=>{
-    session.defaultSession.once('will-download',(_event,item)=>item.setSavePath(target));
-  },exportedPath);
-  await page.locator('#export-project').click();
-  let exported;
-  for(let attempt=0;attempt<50&&!exported;attempt++) {
-    try {exported=JSON.parse(await readFile(exportedPath,'utf8'));}
-    catch {await new Promise(resolve=>setTimeout(resolve,100));}
-  }
-  assert.ok(exported,'the desktop app must write the exported JSON');
-  assert.equal(exported.name,'桌面持久化验收');
-  exported.name='桌面导入验收';
-  await page.locator('#project-file').setInputFiles({name:'import.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(exported))});
-  await page.locator('#confirm-ok').click();
-  assert.equal(await page.locator('#project-name').inputValue(),'桌面导入验收');
+  assert.equal(await page.locator('#save-status').innerText(),'未保存更改');
+  const firstPath=path.resolve(`artifacts/desktop-project-${process.pid}.json`);
+  const secondPath=path.resolve(`artifacts/desktop-copy-${process.pid}.json`);
+  const newPath=path.resolve(`artifacts/desktop-new-${process.pid}.json`);
+  await first.app.evaluate(({dialog},target)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:target});},firstPath);
+  await page.locator('#save-project').click();
+  await page.waitForFunction(()=>document.querySelector('#save-status').textContent.startsWith('已保存'));
+  assert.equal(JSON.parse(await readFile(firstPath,'utf8')).name,'桌面持久化验收');
+  await page.locator('#project-name').fill('桌面覆盖保存验收');
+  await page.locator('#project-name').press('Tab');
+  await first.app.evaluate(({dialog})=>{dialog.showSaveDialog=async()=>{throw Error('Save should use the current file');};});
+  await page.locator('#save-project').click();
+  await page.waitForFunction(()=>document.querySelector('#save-status').textContent.startsWith('已保存'));
+  assert.equal(JSON.parse(await readFile(firstPath,'utf8')).name,'桌面覆盖保存验收');
+  await first.app.evaluate(({dialog},target)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:target});},secondPath);
+  await page.locator('#save-as-project').click();
+  await page.waitForFunction(()=>document.querySelector('#save-status').title.includes('desktop-copy-'));
+  assert.equal(JSON.parse(await readFile(secondPath,'utf8')).name,'桌面覆盖保存验收');
+  assert.equal(JSON.parse(await readFile(firstPath,'utf8')).name,'桌面覆盖保存验收');
+  await page.locator('#project-name').fill('取消另存为');
+  await page.locator('#project-name').press('Tab');
+  await first.app.evaluate(({dialog})=>{dialog.showSaveDialog=async()=>({canceled:true});});
+  await page.locator('#save-as-project').click();
+  assert.equal(await page.locator('#save-status').innerText(),'未保存更改');
+  assert.equal(JSON.parse(await readFile(secondPath,'utf8')).name,'桌面覆盖保存验收');
+  await page.locator('#project-name').fill('桌面覆盖保存验收');
+  await page.locator('#project-name').press('Tab');
+  const invalidPath=path.resolve(`artifacts/desktop-invalid-${process.pid}.json`);
+  await writeFile(invalidPath,'{"version":500}');
+  await first.app.evaluate(({dialog},target)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[target]});},invalidPath);
+  await page.locator('#open-project').click();
+  await page.locator('#toast').filter({hasText:'打开失败'}).waitFor();
+  assert.equal(await page.locator('#project-name').inputValue(),'桌面覆盖保存验收');
+  await first.app.evaluate(({dialog},target)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[target]});},firstPath);
+  await page.locator('#open-project').click();
+  await page.waitForFunction(()=>document.querySelector('#save-status').title.includes('desktop-project-'));
+  await page.locator('#project-name').fill('替换前先保存');
+  await page.locator('#project-name').press('Tab');
+  await page.locator('#new-project').click();
+  assert.ok(await page.locator('#confirm-save').isVisible());
+  await page.locator('#confirm-save').click();
+  await page.waitForFunction(()=>document.querySelector('#save-status').textContent==='尚未保存到文件');
+  assert.equal(JSON.parse(await readFile(firstPath,'utf8')).name,'替换前先保存');
+  await page.locator('#project-name').fill('桌面新建验收');
+  await page.locator('#project-name').press('Tab');
+  await first.app.evaluate(({dialog},target)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:target});},newPath);
+  await page.locator('#save-project').click();
+  await page.waitForFunction(()=>document.querySelector('#save-status').title.includes('desktop-new-'));
+  assert.equal(JSON.parse(await readFile(newPath,'utf8')).name,'桌面新建验收');
+  assert.equal(JSON.parse(await readFile(firstPath,'utf8')).name,'替换前先保存');
   await page.screenshot({path:'artifacts/desktop-app.png'});
 } finally {await first.app.close();}
 
 const second=await open();
 try {
-  assert.equal(await second.page.locator('#project-name').inputValue(),'桌面导入验收');
+  assert.equal(await second.page.locator('#project-name').inputValue(),'桌面新建验收');
   assert.equal(await second.page.locator('#template').inputValue(),'backgate');
   assert.ok((await second.page.locator('#results-panel').innerText()).includes('底栅 FET'));
-  console.log(`Desktop ${packaged?'packaged':'development'} checks passed: local protocol, WebGL, mask preview, typography, JSON import/export and project recovery after restart.`);
+  assert.equal(await second.page.locator('#save-status').innerText(),'未保存更改');
+  console.log(`Desktop ${packaged?'packaged':'development'} checks passed: native new/open/save/save as, cancellation, WebGL, and project recovery.`);
 } finally {await second.app.close();}

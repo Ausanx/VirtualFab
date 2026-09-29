@@ -7,14 +7,40 @@ import SplitGrid from 'split-grid';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const STORAGE='virtualfab.project.v1',LIBRARY='virtualfab.materials.v1';
-let project=createProject('crossbar'),restoreError='';
-try{const saved=localStorage.getItem(STORAGE);if(saved){const parsed=JSON.parse(saved);validateProject(parsed);project=parsed;}}catch(error){restoreError=`本地项目读取失败，已加载示例；原存档尚未覆盖。${error.message}`;}
+let project=createProject('crossbar'),restoreError='',restored=false;
+try{const saved=localStorage.getItem(STORAGE);if(saved){const parsed=JSON.parse(saved);validateProject(parsed);project=parsed;restored=true;}}catch(error){restoreError=`本地项目读取失败，已加载示例；原存档尚未覆盖。${error.message}`;}
 let selected=project.steps.length-1,through=selected,sliceIndex=Math.floor(project.resolution/2),state,result,viewer,timer=null,materialId=project.materials[0].id,curveRows=[],confirmAction=null;
+let savedSnapshot=restored?null:JSON.stringify(project),projectFile='';
 function toast(message){$('#toast').textContent=message;$('#toast').classList.add('visible');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('visible'),4500);}
-function persist(){try{localStorage.setItem(STORAGE,JSON.stringify(project));$('#save-status').textContent='已保存到本机';}catch{$('#save-status').textContent='保存失败 · 请导出';toast('本地存储不可用或空间不足，请导出项目保存。');}}
+function hasUnsavedChanges(){return savedSnapshot!==JSON.stringify(project);}
+function updateSaveStatus(){
+  const dirty=hasUnsavedChanges(),status=$('#save-status');
+  status.textContent=dirty?'未保存更改':projectFile?`${window.virtualFabFiles?'已保存':'已打开'} · ${projectFile.split(/[\\/]/).at(-1)}`:'尚未保存到文件';
+  status.title=projectFile||'自动恢复副本保存在本机；请保存项目文件。';
+  const dot=$('.project-name .status-dot');dot.classList.toggle('dirty',dirty);dot.title=status.textContent;dot.setAttribute('aria-label',status.textContent);
+  document.title=`${dirty?'* ':''}${project.name} - VirtualFab Studio`;
+}
+function persist(){try{localStorage.setItem(STORAGE,JSON.stringify(project));updateSaveStatus();}catch{$('#save-status').textContent='自动备份失败 · 请保存';toast('本地自动备份不可用，请保存项目文件。');}}
 function safeUrl(value){try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)?u.href:'';}catch{return '';}}
 function download(name,text,type='application/json'){const url=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function confirm(title,text,action){$('#confirm-title').textContent=title;$('#confirm-text').textContent=text;confirmAction=action;$('#confirm-dialog').showModal();}
+async function saveProject(saveAs=false){
+  try{
+    validateProject(project);
+    if(window.virtualFabFiles){
+      const snapshot=JSON.stringify(project),saved=await window.virtualFabFiles.save(project,saveAs);
+      if(!saved)return false;
+      projectFile=saved.path;savedSnapshot=snapshot;updateSaveStatus();toast('项目已保存。');return true;
+    }
+    download((project.name.replace(/[<>:"/\\|?*]/g,'_')||'VirtualFab')+'.json',JSON.stringify(project,null,2));
+    toast('项目 JSON 已开始下载，请检查下载文件。');return true;
+  }catch(error){toast('保存失败：'+error.message);return false;}
+}
+function confirm(title,text,action,saveFirst=false){
+  $('#confirm-title').textContent=title;$('#confirm-text').textContent=text;confirmAction=action;
+  $('#confirm-save').hidden=!saveFirst||!window.virtualFabFiles;
+  $('#confirm-ok').textContent=saveFirst?'不保存并继续':'继续';
+  $('#confirm-dialog').showModal();
+}
 function stop(){if(timer){clearInterval(timer);timer=null;}$('#play').textContent='▶';$('#play').setAttribute('aria-label','播放工艺');}
 function applyChange(next,nextSelected=selected,nextThrough=through){try{validateProject(next);project=next;selected=nextSelected;through=nextThrough;persist();render();return true;}catch(error){toast(error.message);return false;}}
 const descriptions={substrate:'选择真实晶圆尺寸。微米级局部窗口单独计算，硅片底部在视图中截断。',dice:'矩形芯片尺寸将检查是否能放入所选圆形晶圆。',clean:'记录清洁条件与顺序；材料兼容性需匹配工艺数据。',coat:'光刻胶牌号决定正负性。当前膜厚由输入给定，转速不自动推导膜厚。',bake:'记录软烘或曝光后烘烤；零时长无效，NR9-3000PY 偏离厂商参考条件会提示未验证。首版不计算交联程度。',expose:'图案定义“显影后的目标开口”。同一胶层的多次曝光会累积；负胶会反转曝光区，显影时才移除胶。',develop:'根据当前胶的正负性与曝光结果生成实际开口。',deposit:'按顶表面沉积膜厚。用于估计层叠与开口填充；侧壁通量和成核尚未求解。',transfer:'以矩形区域放置薄膜，保留厚度和载流子类型；不模拟转移应力与残留。',etch:'按速率 × 时间消耗指定外露材料。其他材料速率未知时保留并提示。',liftoff:'移除已显影光刻胶及其上方的沉积物，保留开口内沉积层；非定向沉积时需核实侧壁连膜。',strip:'去除当前胶层；上方有沉积物时应使用 lift-off。',anneal:'记录温度、时间与气氛；未有标定模型时不自动改变能带或载流子。'};
@@ -113,7 +139,7 @@ function renderViews(){
 }
 function render(){
   const start=performance.now();state=simulate(project,through);result=analyze(state,project.materials);const elapsed=performance.now()-start;
-  $('#project-name').value=project.name;$('#material-count').textContent=`${project.materials.length} 种材料`;
+  $('#project-name').value=project.name;updateSaveStatus();$('#material-count').textContent=`${project.materials.length} 种材料`;
   $('#model-label').textContent=`局部区域 · ${project.sizeUm} × ${project.sizeUm} μm`;$('#elapsed').textContent=`计算 ${elapsed.toFixed(0)} ms`;
   $('#simulation-status').textContent=state.stoppedAt!==null?`步骤 ${state.stoppedAt+1} 停止 · 查看诊断`:'几何计算完成';
   renderCards();renderParams();renderResults();renderViews();
@@ -156,21 +182,33 @@ function renderMaterialDetail(isNew=false){
   };
 }
 
-$('#template').innerHTML=options(templateNames,project.template);
-$('#load-template').onclick=()=>confirm('新建模板项目','当前项目会保留一份本地备份。建议先导出需要长期保存的项目。',()=>{
+function activateProject(next,file=''){
   stop();try{localStorage.setItem(STORAGE+'.previous',JSON.stringify(project));}catch{}
+  project=next;selected=project.steps.length-1;through=selected;sliceIndex=Math.floor(project.resolution/2);
+  projectFile=file;savedSnapshot=JSON.stringify(project);$('#template').value=project.template||'blank';
+  persist();render();
+  if(viewer){viewer.wafer=false;$('#wafer-view').setAttribute('aria-pressed','false');viewer.setView('perspective');renderViews();}
+}
+$('#template').innerHTML=options(templateNames,project.template);
+$('#load-template').onclick=()=>confirm('新建项目',`将以“${templateNames[$('#template').value]}”模板新建项目。当前项目会保留自动备份。`,async()=>{
   const next=createProject($('#template').value);
   try{const stored=JSON.parse(localStorage.getItem(LIBRARY)||'null');if(stored){const merged=new Map(next.materials.map(m=>[m.id,m]));stored.forEach(m=>merged.set(m.id,m));next.materials=[...merged.values()];validateProject(next);}}catch(error){toast('已使用内置材料：'+error.message);next.materials=createProject($('#template').value).materials;}
-  project=next;selected=project.steps.length-1;through=selected;sliceIndex=Math.floor(project.resolution/2);persist();render();if(viewer){viewer.wafer=false;$('#wafer-view').setAttribute('aria-pressed','false');viewer.setView('perspective');renderViews();}
-});
+  try{await window.virtualFabFiles?.reset();activateProject(next);}catch(error){toast('新建项目失败：'+error.message);}
+},hasUnsavedChanges());
+$('#new-project').onclick=()=>$('#load-template').click();
 $('#confirm-cancel').onclick=()=>{$('#confirm-dialog').close();confirmAction=null;};$('#confirm-ok').onclick=()=>{$('#confirm-dialog').close();const action=confirmAction;confirmAction=null;action?.();};
+$('#confirm-save').onclick=async()=>{if(await saveProject()){$('#confirm-dialog').close();const action=confirmAction;confirmAction=null;action?.();}};
 $('#project-name').onchange=e=>{const next=structuredClone(project);next.name=e.target.value.trim()||'未命名项目';applyChange(next);};
-$('#open-project').onclick=()=>$('#project-file').click();
+$('#open-project').onclick=()=>{
+  if(!window.virtualFabFiles){$('#project-file').click();return;}
+  const open=async()=>{try{const chosen=await window.virtualFabFiles.open();if(chosen)activateProject(chosen.project,chosen.path);}catch(error){toast('打开失败，当前项目未修改：'+error.message);}};
+  if(hasUnsavedChanges())confirm('打开项目','当前项目有未保存的更改。',open,true);else open();
+};
 $('#project-file').onchange=async e=>{
   const file=e.target.files[0];e.target.value='';if(!file)return;
-  try{if(file.size>2_000_000)throw Error('项目文件上限为 2 MB。');const imported=JSON.parse(await file.text());validateProject(imported);confirm('打开项目',`将打开“${imported.name}”，包含 ${imported.steps.length} 个步骤。当前项目会保留本地备份。`,()=>{stop();try{localStorage.setItem(STORAGE+'.previous',JSON.stringify(project));}catch{}project=imported;selected=project.steps.length-1;through=selected;sliceIndex=Math.floor(project.resolution/2);$('#template').value=project.template||'blank';persist();render();});}catch(error){toast('导入失败，当前项目未修改：'+error.message);}
+  try{if(file.size>2_000_000)throw Error('项目文件上限为 2 MB。');const imported=JSON.parse(await file.text());validateProject(imported);confirm('打开项目',`将打开“${imported.name}”，包含 ${imported.steps.length} 个步骤。当前项目会保留自动备份。`,async()=>{try{await window.virtualFabFiles?.reset();activateProject(imported,file.name);}catch(error){toast('打开失败：'+error.message);}},hasUnsavedChanges());}catch(error){toast('导入失败，当前项目未修改：'+error.message);}
 };
-$('#export-project').onclick=()=>download((project.name.replace(/[<>:"/\\|?*]/g,'_')||'VirtualFab')+'.json',JSON.stringify(project,null,2));
+$('#save-project').onclick=()=>saveProject();$('#save-as-project').onclick=()=>saveProject(true);
 $('#process-search').oninput=renderLibrary;
 $('#first-step').onclick=()=>selectStep(-1);$('#previous-step').onclick=()=>selectStep(through-1);$('#next-step').onclick=()=>selectStep(through+1);$('#run-all').onclick=()=>selectStep(project.steps.length-1);
 $('#play').onclick=()=>{if(timer){stop();return;}if(through>=project.steps.length-1)selectStep(-1);$('#play').textContent='Ⅱ';$('#play').setAttribute('aria-label','暂停工艺');timer=setInterval(()=>{selectStep(through+1,{playing:true});if(through>=project.steps.length-1||state.stoppedAt!==null)stop();},850);};

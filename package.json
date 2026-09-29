@@ -12,7 +12,7 @@
     "test:browser": "node tests/browser.mjs",
     "test:desktop": "node tests/desktop.mjs",
     "test:desktop:packaged": "node tests/desktop.mjs --packaged",
-    "check": "node --check desktop.mjs && node --check server.mjs && node --check src/app.js && node --check src/engine.js && node --check src/physics.js && node --check src/viewer.js"
+    "check": "node --check desktop.mjs && node --check preload.cjs && node --check server.mjs && node --check src/app.js && node --check src/engine.js && node --check src/physics.js && node --check src/viewer.js"
   },
   "dependencies": {
     "split-grid": "1.0.11",

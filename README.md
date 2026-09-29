@@ -1,10 +1,10 @@
 # VirtualFab Studio
 
-面向二维材料与薄膜器件的本地工艺工作台。提供 Windows 桌面版和开发用本地网页入口。运行时不使用 CDN、远程 AI 或云存储；项目可导入导出 JSON。
+面向二维材料与薄膜器件的本地工艺工作台。提供 Windows 桌面版和开发用本地网页入口。运行时不使用 CDN、远程 AI 或云存储；项目使用本地 JSON 文件。
 
 ## Windows 桌面版
 
-打开 `dist/VirtualFab-win32-x64/VirtualFab.exe`。整个 `VirtualFab-win32-x64` 文件夹需放在一起，程序不依赖已安装的 Node.js、浏览器或本地服务。桌面窗口由 Electron 内嵌 Chromium 渲染，目前不是 Qt 或 .NET 原生控件重写。项目自动保存在当前 Windows 用户的应用数据中。首次从旧网页版本迁移时，先在网页中导出 JSON，再从桌面版“打开项目”导入。
+打开 `dist/VirtualFab-win32-x64/VirtualFab.exe`。整个 `VirtualFab-win32-x64` 文件夹需放在一起，程序不依赖已安装的 Node.js、浏览器或本地服务。桌面窗口由 Electron 内嵌 Chromium 渲染，目前不是 Qt 或 .NET 原生控件重写。文件菜单和顶部工具栏提供新建、打开、保存、另存为（快捷键 Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S）。编辑内容另存有本机自动恢复副本，但“保存”才会写入所选 JSON 文件；重启后恢复的副本需要重新指定保存位置。首次从旧网页版本迁移时，先在网页中下载 JSON，再从桌面版“打开项目”导入。
 
 重新构建便携版：
 
@@ -26,7 +26,7 @@ npm start
 
 ## 当前可用
 
-- 二端交叉阵列、全局底栅、局部顶栅、Te/InON 异质结和空白模板。
+- 二端交叉阵列、全局底栅、局部顶栅、异质结（默认 Te / InON）和空白模板。
 - 工艺卡片新增、复制、重排、禁用、删除及参数编辑；连续曝光累积，曝光后烘烤与显影是不同步骤，金属剥离显式执行；NR9-3000PY 缺少曝光后烘烤或烘烤时长为零时会停止，偏离厂商参考条件时提示未验证。
 - 三维局部结构、展开层、晶圆与划片示意、可移动 Y 剖面；显示单位与 Z 放大倍率。
 - 桌面工作台的资源栏和参数栏可拖动分隔条调整宽度，也可聚焦分隔条后用左右方向键调整；窄屏自动恢复固定布局。
@@ -35,7 +35,7 @@ npm start
 - 源漏与栅极按多层导体连通网络检查；双栅要求同一连通沟道。电极短接时显示诊断，不认作独立 MIM / FET 端子。
 - 能带 Type-I/II/III 是独立于 n/p 类型的标签。缺失带边不绘制假数值。
 - 手动参数的 Shockley I–V 示例与 CSV 导出，供检查模型，不声称从材料组合预测得到器件性能。
-- 自动保存在当前桌面应用或浏览器的本机存储；导入格式与大小校验；模板切换/导入前保留一个 `virtualfab.project.v1.previous` 备份。
+- 桌面项目文件支持新建、打开、保存、另存为及未保存更改提醒；自动恢复副本保存在本机。网页入口保留 JSON 上传/下载；导入格式与大小校验，模板切换/导入前保留一个 `virtualfab.project.v1.previous` 备份。
 
 ## 模型边界
 
@@ -67,4 +67,4 @@ npm run test:desktop:packaged
 
 浏览器测试使用独立临时端口和全新浏览器配置，不影响已有项目。Windows 默认使用已安装的 Edge；其他系统先执行 `npx playwright install chromium`。可通过 `VIRTUALFAB_BROWSER` 指定 Playwright 支持的浏览器通道。Playwright 只用于开发验证，运行工作台只需 Three.js。
 
-当前实现依据：`docs/plans/2026-09-24-virtualfab-design.md`。初始 `virtualfab_engine_ui.md` 保留为远期功能草案。
+交互 MVP 的开源项目分析与取舍见 `docs/plans/2026-09-29-interaction-mvp.md`。原始设计见 `docs/plans/2026-09-24-virtualfab-design.md`；初始 `virtualfab_engine_ui.md` 保留为远期功能草案。

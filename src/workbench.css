@@ -44,6 +44,7 @@ small { font-size: 11px; }
 .project-name input:hover { background: #fff; border-color: var(--line); }
 #save-status { font-size: 11px; }
 .status-dot { width: 6px; height: 6px; }
+.status-dot.dirty { background: var(--orange); }
 .header-actions { gap: 5px; }
 .header-actions button { background: #f7f8fa; font-size: 12px; }
 
@@ -211,6 +212,7 @@ dialog { border-radius: 4px; box-shadow: 0 15px 50px #172b3d38; }
   .workbench { grid-template-columns: 186px 5px minmax(0, 1fr) 5px 266px; }
   .workspace { padding: 0; }
   .topbar { padding: 0 8px; gap: 8px; }
+  #save-status { display: inline-block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #params-panel, #results-panel { padding: 10px 11px 18px; }
   #model-label { display: none; }
 }
@@ -237,6 +239,7 @@ dialog { border-radius: 4px; box-shadow: 0 15px 50px #172b3d38; }
   .viewport-toolbar button { padding: 3px 5px; }
 }
 @media (max-width: 560px) {
+  #save-status { display: none; }
   .topbar { min-height: 42px; height: auto; padding: 6px 8px; }
   .brand { width: auto; padding-right: 8px; }
   .brand strong { font-size: 13px; }
