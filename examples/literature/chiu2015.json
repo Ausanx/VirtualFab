@@ -1,0 +1,932 @@
+{
+  "version": 1,
+  "name": "文献基准 / 实测带隙与未知亲和能",
+  "template": "blank",
+  "sizeUm": 16,
+  "resolution": 64,
+  "materials": [
+    {
+      "id": "Si",
+      "name": "硅 Si",
+      "category": "semiconductor",
+      "color": "#677782",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": 1.12,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "affinity": {
+        "value": 4.05,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "reference": "https://www.ioffe.ru/SVA/NSM/Semicond/Si/",
+      "note": "载流子类型由具体区域的掺杂决定；本示例的能量值仍标为 estimated。"
+    },
+    {
+      "id": "MoS2",
+      "name": "二硫化钼 MoS₂",
+      "category": "semiconductor",
+      "color": "#55BFC4",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": 2.15,
+        "unit": "eV",
+        "evidence": "measured",
+        "source": "https://doi.org/10.1038/ncomms8666",
+        "note": "Monolayer on HOPG; STS at 77 K, quasiparticle gap, reported error +/-0.10 eV. Not an optical gap."
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "source": "",
+        "note": "No applicable measured value supplied."
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "reference": "https://doi.org/10.1038/s41467-021-23711-x",
+      "note": "n 型是配方初始假设；层数与缺陷会改变能带。"
+    },
+    {
+      "id": "WS2",
+      "name": "二硫化钨 WS₂",
+      "category": "semiconductor",
+      "color": "#46A6AE",
+      "polarity": "n",
+      "bandGap": {
+        "value": 2,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "affinity": {
+        "value": 4,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "reference": "https://doi.org/10.1038/srep10699",
+      "note": ""
+    },
+    {
+      "id": "WSe2",
+      "name": "二硒化钨 WSe₂",
+      "category": "semiconductor",
+      "color": "#E5A15A",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": 2.08,
+        "unit": "eV",
+        "evidence": "measured",
+        "source": "https://doi.org/10.1038/ncomms8666",
+        "note": "Monolayer on HOPG; STS at 77 K, quasiparticle gap, reported error +/-0.10 eV. Not an optical gap."
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "source": "",
+        "note": "No applicable measured value supplied."
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "reference": "https://doi.org/10.1021/acsnano.0c08075",
+      "note": "可呈双极性；p 型需具体工艺或栅压支持。"
+    },
+    {
+      "id": "InON",
+      "name": "氮氧化铟 InON",
+      "category": "semiconductor",
+      "color": "#61AFBE",
+      "polarity": "n",
+      "bandGap": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "reference": "https://doi.org/10.1039/d3tc02835f",
+      "note": "O/N 比与等离子体条件相关；不把材料名当作固定带隙或固定掺杂证据。"
+    },
+    {
+      "id": "Te",
+      "name": "碲 Te",
+      "category": "semiconductor",
+      "color": "#D69564",
+      "polarity": "p",
+      "bandGap": {
+        "value": 0.35,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "affinity": {
+        "value": 4.5,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "reference": "https://doi.org/10.1007/s40820-022-00852-2",
+      "note": "带隙示例接近体材料；不能用于任意厚度的 tellurene 定量预测。"
+    },
+    {
+      "id": "graphene",
+      "name": "石墨烯",
+      "category": "semimetal",
+      "color": "#4F565D",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": 4.5,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "表面状态相关的示例功函数；非实测接触势垒",
+        "source": ""
+      },
+      "reference": "https://doi.org/10.1038/nature12385",
+      "note": "半金属；不可自动代入有带隙半导体的 PN 模型。"
+    },
+    {
+      "id": "Au",
+      "name": "金 Au",
+      "category": "conductor",
+      "color": "#E5A15A",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": 5.1,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "表面状态相关的示例功函数；非实测接触势垒",
+        "source": ""
+      },
+      "reference": "",
+      "note": ""
+    },
+    {
+      "id": "Ti",
+      "name": "钛 Ti",
+      "category": "conductor",
+      "color": "#8496A6",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": 4.33,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "表面状态相关的示例功函数；非实测接触势垒",
+        "source": ""
+      },
+      "reference": "",
+      "note": ""
+    },
+    {
+      "id": "Al",
+      "name": "铝 Al",
+      "category": "conductor",
+      "color": "#B3BEC6",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": 4.28,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "表面状态相关的示例功函数；非实测接触势垒",
+        "source": ""
+      },
+      "reference": "",
+      "note": ""
+    },
+    {
+      "id": "Pt",
+      "name": "铂 Pt",
+      "category": "conductor",
+      "color": "#B8B8AD",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": 5.65,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "表面状态相关的示例功函数；非实测接触势垒",
+        "source": ""
+      },
+      "reference": "",
+      "note": ""
+    },
+    {
+      "id": "Pd",
+      "name": "钯 Pd",
+      "category": "conductor",
+      "color": "#98A3AD",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": 5.12,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "表面状态相关的示例功函数；非实测接触势垒",
+        "source": ""
+      },
+      "reference": "",
+      "note": ""
+    },
+    {
+      "id": "W",
+      "name": "钨 W",
+      "category": "conductor",
+      "color": "#798188",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": 4.55,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "表面状态相关的示例功函数；非实测接触势垒",
+        "source": ""
+      },
+      "reference": "",
+      "note": ""
+    },
+    {
+      "id": "ITO",
+      "name": "氧化铟锡 ITO",
+      "category": "tco",
+      "color": "#95CAD5",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": 3.7,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "光学带隙示例，不等同于输运带隙",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": 4.7,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "表面状态相关的示例功函数；非实测接触势垒",
+        "source": ""
+      },
+      "reference": "https://doi.org/10.1002/aelm.201600529",
+      "note": "透明导电氧化物；功函数、电阻率和透过率依赖氧分压、Sn 含量、厚度与退火。"
+    },
+    {
+      "id": "SiO2",
+      "name": "二氧化硅 SiO₂",
+      "category": "dielectric",
+      "color": "#B5C5CF",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": 9,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "permittivity": {
+        "value": 3.9,
+        "unit": "1",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "reference": "",
+      "note": "介质 ≠ PIN 中的本征半导体；不自动具有电阻切换功能。"
+    },
+    {
+      "id": "Al2O3",
+      "name": "氧化铝 Al₂O₃",
+      "category": "dielectric",
+      "color": "#77A8C4",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": 8.8,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "permittivity": {
+        "value": 9,
+        "unit": "1",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "reference": "",
+      "note": "介质 ≠ PIN 中的本征半导体；不自动具有电阻切换功能。"
+    },
+    {
+      "id": "HfO2",
+      "name": "氧化铪 HfO₂",
+      "category": "dielectric",
+      "color": "#4B94BD",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": 5.8,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "permittivity": {
+        "value": 20,
+        "unit": "1",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "reference": "",
+      "note": "介质 ≠ PIN 中的本征半导体；不自动具有电阻切换功能。"
+    },
+    {
+      "id": "hBN",
+      "name": "六方氮化硼 h-BN",
+      "category": "dielectric",
+      "color": "#A9C8D6",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": 6,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "permittivity": {
+        "value": 4,
+        "unit": "1",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "reference": "",
+      "note": "介质 ≠ PIN 中的本征半导体；不自动具有电阻切换功能。"
+    },
+    {
+      "id": "glass",
+      "name": "玻璃",
+      "category": "substrate",
+      "color": "#92A3AE",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": 9,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "permittivity": {
+        "value": 4,
+        "unit": "1",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "reference": "",
+      "note": "玻璃品类相关；此条只供几何衬底使用。"
+    },
+    {
+      "id": "sapphire",
+      "name": "蓝宝石",
+      "category": "substrate",
+      "color": "#86AAC0",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": 8.8,
+        "unit": "eV",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "permittivity": {
+        "value": 9.4,
+        "unit": "1",
+        "evidence": "estimated",
+        "note": "示例估算；须按膜厚、晶相和制备条件校准",
+        "source": ""
+      },
+      "reference": "",
+      "note": "介质 ≠ PIN 中的本征半导体；不自动具有电阻切换功能。"
+    },
+    {
+      "id": "NR9-3000PY",
+      "name": "NR9-3000PY",
+      "category": "resist",
+      "color": "#BB8A80",
+      "polarity": "unknown",
+      "tone": "negative",
+      "method": "UV",
+      "developer": "RD6（具体条件待校准）",
+      "remover": "RR4 / 丙酮（需核对下层兼容性）",
+      "bandGap": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "reference": "https://signupmonkey.ece.ucsb.edu/wiki/images/7/71/NR9-3000PY-revA.pdf",
+      "note": "具体牌号负胶；官方技术资料给出 365 nm、150 °C/60 s 软烘、100 °C/60 s 曝光后烘烤与 RD6 显影参考。默认胶厚由配方填写。"
+    },
+    {
+      "id": "S1813",
+      "name": "S1813",
+      "category": "resist",
+      "color": "#BB8A80",
+      "polarity": "unknown",
+      "tone": "positive",
+      "method": "UV",
+      "developer": "MF-319（工艺参考）",
+      "remover": "兼容溶剂（按膜层选择）",
+      "bandGap": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "reference": "",
+      "note": "正胶；默认厚度和烘烤值为演示配方，不是厂商窗口。"
+    },
+    {
+      "id": "AZ5214E",
+      "name": "AZ5214E",
+      "category": "resist",
+      "color": "#BB8A80",
+      "polarity": "unknown",
+      "tone": "positive",
+      "method": "UV",
+      "developer": "按厂商工艺",
+      "remover": "按厂商工艺",
+      "bandGap": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "reference": "https://www.microchemicals.com/dokumente/datenblaetter/tds/merck/en/tds_az_5214e_photoresist.pdf",
+      "note": "当前按正胶模式处理；反转模式需另加反转烘烤与泛曝光，尚未建模。"
+    },
+    {
+      "id": "PMMA950A4",
+      "name": "PMMA950A4",
+      "category": "resist",
+      "color": "#BB8A80",
+      "polarity": "unknown",
+      "tone": "positive",
+      "method": "EBL",
+      "developer": "MIBK:IPA（工艺参考）",
+      "remover": "丙酮（须检查下层兼容性）",
+      "bandGap": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "reference": "",
+      "note": "电子束胶；本模型只处理几何开口，不预测曝光剂量响应。"
+    },
+    {
+      "id": "SU8",
+      "name": "SU8",
+      "category": "resist",
+      "color": "#BB8A80",
+      "polarity": "unknown",
+      "tone": "negative",
+      "method": "UV",
+      "developer": "PGMEA（工艺参考）",
+      "remover": "交联后较难去除",
+      "bandGap": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "note": "尚无经核实、适用于本工艺的数值",
+        "source": ""
+      },
+      "reference": "",
+      "note": "通常用于永久结构；普通 lift-off 不是默认适用路线。"
+    },
+    {
+      "id": "Cr",
+      "name": "Cr",
+      "category": "conductor",
+      "color": "#8496A6",
+      "polarity": "unknown",
+      "bandGap": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "source": "",
+        "note": "No applicable measured value supplied."
+      },
+      "affinity": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "source": "",
+        "note": "No applicable measured value supplied."
+      },
+      "workFunction": {
+        "value": null,
+        "unit": "eV",
+        "evidence": "missing",
+        "source": "",
+        "note": "No applicable measured value supplied."
+      },
+      "reference": "",
+      "note": "Electrode identity only; no assumed work function."
+    }
+  ],
+  "steps": [
+    {
+      "id": "wafer",
+      "type": "substrate",
+      "name": "选择衬底",
+      "enabled": true,
+      "params": {
+        "material": "Si",
+        "waferInch": 4,
+        "waferThicknessUm": 525,
+        "oxideNm": 2,
+        "backgate": false,
+        "doping": "unknown"
+      }
+    },
+    {
+      "id": "p-flake",
+      "type": "transfer",
+      "name": "薄膜转移",
+      "enabled": true,
+      "params": {
+        "material": "WSe2",
+        "thicknessNm": 0.7,
+        "role": "active",
+        "doping": "unknown",
+        "widthUm": 8,
+        "lengthUm": 6,
+        "offsetXUm": -1,
+        "offsetYUm": 0
+      }
+    },
+    {
+      "id": "n-flake",
+      "type": "transfer",
+      "name": "薄膜转移",
+      "enabled": true,
+      "params": {
+        "material": "MoS2",
+        "thicknessNm": 0.65,
+        "role": "active",
+        "doping": "unknown",
+        "widthUm": 8,
+        "lengthUm": 6,
+        "offsetXUm": 1,
+        "offsetYUm": 0
+      }
+    }
+  ],
+  "benchmark": {
+    "key": "chiu2015",
+    "reference": {
+      "title": "Determination of band alignment in the single-layer MoS2/WSe2 heterojunction",
+      "authors": "Chiu et al.",
+      "journal": "Nature Communications 6, 7666 (2015)",
+      "doi": "10.1038/ncomms8666",
+      "fullText": "https://hub.hku.hk/bitstream/10722/297973/1/content.pdf",
+      "authorManuscript": "https://arxiv.org/pdf/1406.5137",
+      "locator": "Published article Results pp. 3-4, Eq. (2), Fig. 3 and Methods pp. 5-6.",
+      "measurements": {
+        "type": "II",
+        "deltaEc": 0.76,
+        "deltaEcError": 0.12,
+        "deltaEv": 0.83,
+        "deltaEvError": 0.07,
+        "mos2Gap": 2.15,
+        "wse2Gap": 2.08,
+        "gapError": 0.1,
+        "mos2Ec": 0.31,
+        "mos2Ev": -1.84,
+        "wse2Ec": 1.03,
+        "wse2Ev": -1.05
+      },
+      "assumptions": [
+        "STS band edges reference HOPG Fermi energy, not vacuum. No absolute electron affinity is extracted or stored as measured.",
+        "The published CBO is inferred from VBO and STS gaps; it is not an independent second measurement.",
+        "XPS/STS and STS-only estimates share data; agreement is a cross-method consistency check, not independent replication.",
+        "Reported error bars are comparison intervals; their statistical confidence and covariance are not assumed.",
+        "The project is a simplified transferred stack on Si with approximately 2 nm native oxide, not a reconstruction of STM or XPS instrumentation."
+      ]
+    }
+  }
+}

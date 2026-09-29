@@ -12,6 +12,9 @@
     "test:browser": "node tests/browser.mjs",
     "test:desktop": "node tests/desktop.mjs",
     "test:desktop:packaged": "node tests/desktop.mjs --packaged",
+    "validate:literature": "node benchmarks/run-literature.mjs",
+    "validate:literature:strict": "node benchmarks/run-literature.mjs --strict",
+    "test:literature:desktop": "node tests/literature-desktop.mjs",
     "check": "node --check desktop.mjs && node --check preload.cjs && node --check server.mjs && node --check src/app.js && node --check src/engine.js && node --check src/physics.js && node --check src/viewer.js"
   },
   "dependencies": {

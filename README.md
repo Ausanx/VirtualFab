@@ -51,6 +51,8 @@ npm start
 
 ## 检查
 
+文献标定与交叉验证：`npm run validate:literature` 生成三组可打开的项目、带阶残差和网格扫描 CSV。`npm run validate:literature:strict` 在定量比较不通过时返回非零；当前默认 MoS₂/WSe₂ 参数未通过实测带阶比较，工程测试通过不代表实验标定通过。方法和边界见 [文献验证方法](docs/validation/literature-calibration.md)，数值见 [运行报告](docs/validation/literature-results.md)。样例位于 `examples/literature/`，桌面操作检查为 `npm run test:literature:desktop`。
+
 ```powershell
 npm test
 npm run check
