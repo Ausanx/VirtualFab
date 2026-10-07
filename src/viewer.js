@@ -141,7 +141,8 @@ export function drawEquilibrium(container,result,quantity='bands') {
     series=[['electronCm3','n','#55BFC4'],['holeCm3','p','#E5A15A']];label='log₁₀ n, p (cm⁻³)';title='Boltzmann 载流子分布';
   }else if(quantity==='field'){
     rows=result.fields;series=[['fieldVcm','E','#2F7FAE']];label='E (V/cm)';title='E = −dψ/dx';
-  }else{series=[['ecEv','Ec','#55BFC4'],['evEv','Ev','#E5A15A'],['efEv','EF','#4F565D']];label='E − EF (eV)';title='EF = 0 · 平衡费米参考';}
+  }else if(quantity==='potential'){series=[['potentialV','ψ','#2F7FAE']];label='ψ (V)';title='平衡电势 · 内部参考';}
+  else{series=[['ecEv','Ec','#55BFC4'],['evEv','Ev','#E5A15A'],['efEv','EF','#4F565D']];label='E − EF (eV)';title='EF = 0 · 平衡费米参考';}
   const value=(r,key)=>quantity==='carriers'?Math.log10(r[key]):r[key];
   const values=rows.flatMap(r=>series.map(([key])=>value(r,key))),lo=Math.min(...values),hi=Math.max(...values),padding=Math.max((hi-lo)*.12,quantity==='field'?100:.12),min=lo-padding,max=hi+padding;
   const end=result.rows.at(-1).xUm,px=v=>x+v/end*w,py=v=>y+h-(v-min)/(max-min)*h;
@@ -157,7 +158,8 @@ export function drawEquilibrium(container,result,quantity='bands') {
     if(a>0)content+=`<path d="M${px(a)} ${y}v${h}" stroke="#D9DEE3" stroke-dasharray="3 4"/>`;
     content+=`<text class="plot-text" x="${px((a+b)/2)}" y="${y+17}" text-anchor="middle">${text}</text>`;
   }
-  container.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="一维硅平衡${quantity==='bands'?'能带':quantity==='carriers'?'载流子分布':'电场'}"><title>独立 1D 模型，理想欧姆端部，非当前三维工艺结构性能</title>${axes(x,y,w,h,xt,yt,'x (μm)',label)}${content}<text class="plot-text" x="${x+w}" y="17" text-anchor="end">${title} · ${series.map(s=>s[1]).join(' / ')}</text></svg>`;
+  const status=`${result.history?'历史 · ':''}${result.accuracyPassed===false?'精度未通过 · ':''}${result.mapping?'工艺映射 · 给定掺杂':'独立算例'}`;
+  container.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="一维硅平衡${quantity==='bands'?'能带':quantity==='carriers'?'载流子分布':quantity==='potential'?'电势':'电场'}"><title>${status}；理想欧姆端部；能量为内部 EF 参考</title>${axes(x,y,w,h,xt,yt,result.mapping?'s (μm)':'x (μm)',label)}${content}<text class="plot-text" x="${x}" y="${H-5}">${escapeHtml(status)} · 实验标定未检查</text><text class="plot-text" x="${x+w}" y="17" text-anchor="end">${title} · ${series.map(s=>s[1]).join(' / ')}</text></svg>`;
 }
 export function drawCurve(container,rows) {
   const W=Math.max(360,container.clientWidth||735),x=70,y=25,w=W-95,h=150,min=Math.min(...rows.map(r=>r.currentA)),max=Math.max(...rows.map(r=>r.currentA)),span=max-min||1;

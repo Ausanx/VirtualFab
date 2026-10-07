@@ -1,7 +1,7 @@
 import { getMaterial,gapKindNames } from './materials.js';
 import { processTypes, patterns } from './recipes.js';
 import { interfaceKey,profilesFor } from './interfaces.js';
-import { validateEquilibrium } from './equilibrium.js';
+import { validateEquilibrium,validateDevicePhysics } from './equilibrium.js';
 import { validateDft } from './atomic.js';
 
 const EPS=1e-8;
@@ -37,6 +37,7 @@ export function validateProject(p) {
     }
   }
   if(p.equilibrium!==undefined)validateEquilibrium(p.equilibrium);
+  if(p.devicePhysics!==undefined)validateDevicePhysics(p.devicePhysics);
   if(p.dft!==undefined)validateDft(p.dft);
   if(!Array.isArray(p.steps)||p.steps.length<1||p.steps.length>150) throw Error('工艺步骤需为 1–150。');
   const stepIds=new Set();
@@ -240,7 +241,7 @@ export function simulate(project,through=project.steps.length-1) {
 
 // ponytail: connected components on sampled columns; exact sidewall surfaces require a 3D mesh solver.
 export function contactGraph(state) {
-  const all=[],cellIds=state.cells.map(c=>c.map(l=>{all.push(l);return all.length-1;}));
+  const all=[],positions=[],cellIds=state.cells.map((c,ci)=>c.map((l,li)=>{all.push(l);positions.push([ci,li]);return all.length-1;}));
   const parent=all.map((_,i)=>i),find=x=>{while(parent[x]!==x){parent[x]=parent[parent[x]];x=parent[x];}return x;};
   const union=(a,b)=>{parent[find(a)]=find(b);},rawEdges=[];
   const same=(a,b)=>a.stepId===b.stepId&&a.role===b.role&&a.material===b.material&&a.doping===b.doping;
@@ -256,8 +257,9 @@ export function contactGraph(state) {
   const nodes=new Map(),edges=new Map();
   all.forEach((layer,i)=>{
     const id=find(i),thickness=layer.z1-layer.z0;
-    if(!nodes.has(id))nodes.set(id,{...layer,id,segments:0,minThicknessNm:thickness,maxThicknessNm:thickness});
+    if(!nodes.has(id))nodes.set(id,{...layer,id,segments:0,minThicknessNm:thickness,maxThicknessNm:thickness,samples:[]});
     const node=nodes.get(id);node.segments++;node.minThicknessNm=Math.min(node.minThicknessNm,thickness);node.maxThicknessNm=Math.max(node.maxThicknessNm,thickness);
+    node.samples.push(positions[i]);
   });
   for(const [a,b]of rawEdges) {const x=find(a),y=find(b);if(x!==y)edges.set([x,y].sort((u,v)=>u-v).join(':'),[x,y]);}
   const sandwiches=new Set();

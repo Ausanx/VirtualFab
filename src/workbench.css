@@ -362,6 +362,15 @@ p { line-height: 1.5; }
 .physics-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 12px; margin: 10px 0; }
 .physics-form>label, .interface-controls>label { display: grid; gap: 5px; font-size: 12px; min-width: 0; }
 .physics-form input, .physics-form select { width: 100%; }
+.physics-source { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 10px 0; white-space: nowrap; }
+.physics-source select { min-width: 0; max-width: 100%; flex: 1; }
+#device-physics-panel { font-size: 12px; margin: 10px 0; }
+#device-physics-panel>details { margin: 10px 0; }
+#device-physics-panel summary { cursor: pointer; }
+.device-region { border-top: 1px solid var(--line); padding: 8px 0; overflow-wrap: anywhere; }
+#device-preview, #device-status { margin: 10px 0; overflow-wrap: anywhere; }
+#device-region-choice { max-width: 280px; }
+#device-jobs { width: 100%; }
 .physics-actions { grid-column: 1/-1; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .physics-actions label { display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12px; }
 .physics-actions select { width: 132px; }

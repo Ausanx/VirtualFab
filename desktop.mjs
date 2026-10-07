@@ -1,17 +1,19 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, protocol, shell } from 'electron';
 import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
+import { randomUUID,createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { publicAsset } from './server.mjs';
 import { validateProject } from './src/engine.js';
 import { solveEquilibrium } from './solver/run.mjs';
 import { DftJobs } from './dft/jobs.mjs';
+import { PhysicsJobs } from './solver/jobs.mjs';
 
 const origin='virtualfab://app';
 let window,currentPath=null;
 let solverBusy=false;
-let dftJobs,quitting=false;
+let manualController,manualDone;
+let dftJobs,physicsJobs,quitting=false;
 ipcMain.handle('dft:probe',async event=>{fromWindow(event);return dftJobs.probe();});
 ipcMain.handle('dft:import',async(event,dimensionality)=>{
   fromWindow(event);
@@ -19,21 +21,26 @@ ipcMain.handle('dft:import',async(event,dimensionality)=>{
   const chosen=await dialog.showOpenDialog(window,{title:'导入原子结构',properties:['openFile'],filters:[{name:'原子结构',extensions:['cif','vasp','poscar','xyz','extxyz']},{name:'POSCAR',extensions:['*']}]});
   return chosen.canceled||!chosen.filePaths[0]?null:dftJobs.importStructure(chosen.filePaths[0],dimensionality);
 });
-ipcMain.handle('dft:start',async(event,config)=>{fromWindow(event);return dftJobs.start(config);});
+ipcMain.handle('dft:start',async(event,config)=>{fromWindow(event);if(solverBusy||physicsJobs.active||physicsJobs.starting)throw Error('已有平衡计算正在运行。');return dftJobs.start(config);});
 ipcMain.handle('dft:list',async(event,ids)=>{fromWindow(event);return dftJobs.list(ids);});
 ipcMain.handle('dft:inspect',async(event,id)=>{fromWindow(event);return dftJobs.inspect(id);});
 ipcMain.handle('dft:cancel',async(event,id)=>{fromWindow(event);return dftJobs.cancel(id);});
-ipcMain.handle('dft:resume',async(event,id)=>{fromWindow(event);return dftJobs.resume(id);});
+ipcMain.handle('dft:resume',async(event,id)=>{fromWindow(event);if(solverBusy||physicsJobs.active||physicsJobs.starting)throw Error('已有平衡计算正在运行。');return dftJobs.resume(id);});
 ipcMain.handle('dft:reveal',async(event,id)=>{fromWindow(event);await dftJobs.verify(id);const directory=dftJobs.directory(id);shell.showItemInFolder(path.join(directory,'manifest.json'));});
 const projectFilter=[{name:'VirtualFab 项目',extensions:['json']}];
 function fromWindow(event){if(event.sender!==window?.webContents)throw Error('无效的项目文件请求。');}
 ipcMain.handle('physics:equilibrium',async(event,config)=>{
   fromWindow(event);
-  if(solverBusy)throw Error('上一次平衡求解尚未结束。');
+  if(solverBusy||physicsJobs.active||physicsJobs.starting||dftJobs.active||dftJobs.starting)throw Error('已有本地计算正在运行。');
   solverBusy=true;
-  try{return await solveEquilibrium(config,{resourcesPath:app.isPackaged?process.resourcesPath:undefined});}
-  finally{solverBusy=false;}
+  manualController=new AbortController();
+  try{manualDone=solveEquilibrium(config,{resourcesPath:app.isPackaged?process.resourcesPath:undefined,signal:manualController.signal});return await manualDone;}
+  finally{solverBusy=false;manualController=null;manualDone=null;}
 });
+ipcMain.handle('physics:start',async(event,project,through)=>{fromWindow(event);if(solverBusy||dftJobs.active||dftJobs.starting)throw Error('已有本地计算正在运行。');return physicsJobs.start(project,through);});
+ipcMain.handle('physics:list',async(event,ids)=>{fromWindow(event);return physicsJobs.list(ids);});
+ipcMain.handle('physics:inspect',async(event,id)=>{fromWindow(event);return physicsJobs.inspect(id);});
+ipcMain.handle('physics:cancel',async(event,id)=>{fromWindow(event);return physicsJobs.cancel(id);});
 ipcMain.handle('project:open',async event=>{
   fromWindow(event);
   const chosen=await dialog.showOpenDialog(window,{title:'打开项目',properties:['openFile'],filters:projectFilter});
@@ -64,17 +71,27 @@ ipcMain.handle('project:save',async (event,project,saveAs=false)=>{
   return {path:target};
 });
 ipcMain.handle('project:reset',event=>{fromWindow(event);currentPath=null;});
-ipcMain.handle('data:export-csv',async(event,name,content)=>{
+async function exportData(event,name,content,extension,metadata){
   fromWindow(event);
-  if(typeof name!=='string'||!/^[-a-z0-9]+\.csv$/i.test(name)||typeof content!=='string'||Buffer.byteLength(content)>5_000_000)throw Error('CSV 导出数据无效或超过 5 MB。');
-  const chosen=await dialog.showSaveDialog(window,{title:'导出 CSV',defaultPath:path.join(app.getPath('documents'),name),filters:[{name:'CSV 数据',extensions:['csv']}]});
+  if(typeof name!=='string'||!new RegExp(`^[-a-z0-9]+\\.${extension}$`,'i').test(name)||typeof content!=='string'||Buffer.byteLength(content)>5_000_000)throw Error('导出数据无效或超过 5 MB。');
+  if(metadata!==undefined&&(typeof metadata!=='string'||Buffer.byteLength(metadata)>500000))throw Error('导出元数据无效或超过 500 KB。');
+  const meta=metadata===undefined?null:JSON.parse(metadata);
+  if(metadata!==undefined&&(!meta||Array.isArray(meta)||meta.schemaVersion!==1))throw Error('导出元数据版本无效。');
+  const chosen=await dialog.showSaveDialog(window,{title:'导出 '+extension.toUpperCase(),defaultPath:path.join(app.getPath('documents'),name),filters:[{name:extension.toUpperCase()+' 数据',extensions:[extension]}]});
   if(chosen.canceled||!chosen.filePath)return null;
-  let target=chosen.filePath;if(path.extname(target).toLowerCase()!=='.csv')target+='.csv';
+  let target=chosen.filePath;if(path.extname(target).toLowerCase()!=='.'+extension)target+='.'+extension;
   const temporary=`${target}.${randomUUID()}.tmp`;
-  try{await writeFile(temporary,content,{flag:'wx'});await rename(temporary,target);}
-  finally{await rm(temporary,{force:true}).catch(()=>{});}
+  const metadataTemporary=temporary+'.metadata.json';
+  try{
+    await writeFile(temporary,content,{flag:'wx'});
+    if(meta){await writeFile(metadataTemporary,JSON.stringify({...meta,csvSha256:createHash('sha256').update(content).digest('hex')},null,2)+'\n',{flag:'wx'});await rename(metadataTemporary,target+'.metadata.json');}
+    await rename(temporary,target);
+  }finally{await Promise.allSettled([rm(temporary,{force:true}),rm(metadataTemporary,{force:true})]);}
   return {path:target};
-});
+}
+ipcMain.handle('data:export-csv',(event,name,content)=>exportData(event,name,content,'csv'));
+ipcMain.handle('data:export-json',(event,name,content)=>exportData(event,name,content,'json'));
+ipcMain.handle('data:export-physics-csv',(event,name,content,metadata)=>exportData(event,name,content,'csv',metadata));
 protocol.registerSchemesAsPrivileged([{scheme:'virtualfab',privileges:{standard:true,secure:true,supportFetchAPI:true}}]);
 
 if(!app.requestSingleInstanceLock())app.quit();
@@ -83,6 +100,8 @@ else {
   app.whenReady().then(async()=>{
     dftJobs=new DftJobs({root:path.join(app.getPath('userData'),'dft-jobs'),resourcesPath:app.isPackaged?process.resourcesPath:undefined});
     await dftJobs.init();
+    physicsJobs=new PhysicsJobs({root:path.join(app.getPath('userData'),'physics-jobs'),resourcesPath:app.isPackaged?process.resourcesPath:undefined});
+    await physicsJobs.init();
     protocol.handle('virtualfab',async request=>{
       try {
         const url=new URL(request.url);
@@ -112,6 +131,6 @@ else {
   });
   app.on('window-all-closed',()=>app.quit());
   app.on('before-quit',event=>{
-    if(!quitting&&(dftJobs?.active||dftJobs?.starting)){event.preventDefault();quitting=true;void dftJobs.close().finally(()=>app.quit());}
+    if(!quitting&&(solverBusy||dftJobs?.active||dftJobs?.starting||physicsJobs?.active||physicsJobs?.starting)){event.preventDefault();quitting=true;manualController?.abort();void Promise.allSettled([dftJobs.close(),physicsJobs.close(),manualDone]).finally(()=>app.quit());}
   });
 }

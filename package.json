@@ -18,13 +18,15 @@
     "validate:literature:strict": "node benchmarks/run-literature.mjs --strict",
     "test:literature:desktop": "node tests/literature-desktop.mjs",
     "test:physics:desktop": "node tests/physics-desktop.mjs",
+    "test:device:desktop": "node tests/device-desktop.mjs",
+    "validate:device": "node benchmarks/run-device.mjs",
     "validate:physics": "node benchmarks/run-equilibrium.mjs",
     "setup:dft": "powershell -NoProfile -ExecutionPolicy Bypass -File dft/setup.ps1",
     "validate:dft": "node benchmarks/run-dft.mjs",
     "test:dft:core": "node tests/dft-core.mjs",
     "test:dft:desktop": "node tests/dft-desktop.mjs",
     "test:dft:desktop:packaged": "node tests/dft-desktop.mjs --packaged",
-    "check": "node --check desktop.mjs && node --check preload.cjs && node --check server.mjs && node --check src/app.js && node --check src/engine.js && node --check src/physics.js && node --check src/viewer.js && node --check src/atomic.js && node --check src/atomic-ui.js && node --check src/atomic-viewer.js && node --check dft/jobs.mjs && node --check benchmarks/run-dft.mjs"
+    "check": "node --check desktop.mjs && node --check preload.cjs && node --check server.mjs && node --check src/app.js && node --check src/engine.js && node --check src/physics.js && node --check src/viewer.js && node --check src/atomic.js && node --check src/atomic-ui.js && node --check src/atomic-viewer.js && node --check dft/jobs.mjs && node --check benchmarks/run-dft.mjs && node --check src/equilibrium.js && node --check src/device-model.js && node --check src/device-ui.js && node --check solver/run.mjs && node --check solver/jobs.mjs && node --check benchmarks/run-device.mjs"
   },
   "dependencies": {
     "split-grid": "1.0.11",

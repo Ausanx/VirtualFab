@@ -3,7 +3,9 @@ import { categoryNames,evidenceNames,gapKindNames,getMaterial } from './material
 import { simulate,validateProject,compareGrids } from './engine.js';
 import { analyze,diodeCurve } from './physics.js';
 import { interfaceKey,profilesFor } from './interfaces.js';
-import { equilibriumDefaults,validateEquilibrium } from './equilibrium.js';
+import { equilibriumDefaults,validateEquilibrium,assessEquilibrium } from './equilibrium.js';
+import { DevicePhysicsUI } from './device-ui.js';
+import { siliconBenchmark } from './device-model.js';
 import { StructureViewer,drawSlice,drawBands,drawInterfaceBands,drawEquilibrium,drawCurve,escapeHtml as esc } from './viewer.js';
 import SplitGrid from 'split-grid';
 import { AtomicUI } from './atomic-ui.js';
@@ -15,7 +17,7 @@ try{const saved=localStorage.getItem(STORAGE);if(saved){const parsed=JSON.parse(
 let selected=project.steps.length-1,through=selected,sliceIndex=Math.floor(project.resolution/2),state,result,viewer,timer=null,materialId=project.materials[0].id,curveRows=[],confirmAction=null;
 let savedSnapshot=restored?null:JSON.stringify(project),projectFile='';
 let equilibriumResult=null,equilibriumGeneration=0,equilibriumRunning=false;
-let atomicUI;
+let atomicUI,deviceUI,manualResult=null,deviceResult=null;
 function toast(message){$('#toast').textContent=message;$('#toast').classList.add('visible');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('visible'),4500);}
 function hasUnsavedChanges(){return savedSnapshot!==JSON.stringify(project);}
 function updateSaveStatus(){
@@ -27,11 +29,14 @@ function updateSaveStatus(){
 }
 function persist(){try{localStorage.setItem(STORAGE,JSON.stringify(project));updateSaveStatus();}catch{$('#save-status').textContent='自动备份失败 · 请保存';toast('本地自动备份不可用，请保存项目文件。');}}
 function safeUrl(value){try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)?u.href:'';}catch{return '';}}
-function download(name,text,type='application/json'){
+function download(name,text,type='application/json',metadata){
+  if(metadata&&window.virtualFabFiles?.exportPhysicsCsv){window.virtualFabFiles.exportPhysicsCsv(name,text,JSON.stringify(metadata)).then(saved=>{if(saved)toast('CSV 与配套元数据已导出。');}).catch(error=>toast('导出失败：'+error.message));return;}
   if(type==='text/csv'&&window.virtualFabFiles?.exportCsv){
     window.virtualFabFiles.exportCsv(name,text).then(saved=>{if(saved)toast('CSV 数据已导出。');}).catch(error=>toast('导出失败：'+error.message));return;
   }
+  if(name==='si-equilibrium-result.json'&&window.virtualFabFiles?.exportResult){window.virtualFabFiles.exportResult(name,text).then(saved=>{if(saved)toast('结果档案已导出。');}).catch(error=>toast('导出失败：'+error.message));return;}
   const url=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  if(metadata)download(name+'.metadata.json',JSON.stringify(metadata,null,2)+'\n');
 }
 async function saveProject(saveAs=false){
   try{
@@ -168,7 +173,9 @@ function renderInterfaces(){
   });
 }
 function invalidateEquilibrium(){
-  equilibriumGeneration++;equilibriumResult=null;$('#export-equilibrium').disabled=true;
+  equilibriumGeneration++;manualResult=null;
+  if($('#equilibrium-source').value==='device')return;
+  equilibriumResult=null;$('#export-equilibrium').disabled=true;$('#export-equilibrium-meta').disabled=true;
   $('#equilibrium-summary').innerHTML='';$('#equilibrium-plot').innerHTML='';
   $('#equilibrium-status').textContent='尚未求解';
 }
@@ -180,11 +187,18 @@ function renderEquilibriumConfig(){
   if(!window.virtualFabPhysics)$('#equilibrium-status').textContent='本地物理求解器仅在桌面版运行。';
 }
 function renderEquilibriumResult(){
-  if(!equilibriumResult)return;
+  if(!equilibriumResult){$('#equilibrium-summary').innerHTML='';$('#equilibrium-plot').innerHTML='';$('#export-equilibrium').disabled=true;$('#export-equilibrium-meta').disabled=true;$('#equilibrium-status').textContent='尚未求解';return;}
   const r=equilibriumResult,o=r.oracle,m=r.meshCheck;
-  $('#equilibrium-status').textContent=`DEVSIM ${r.solverVersion} · 已收敛 · ${r.rows.length} 个节点 · ${r.config.intrinsicLengthUm?'PIN':'PN'}`;
+  $('#equilibrium-status').textContent=`${r.history?'历史结果 · ':''}DEVSIM ${r.solverVersion} · 已收敛 · ${r.rows.length} 个节点 · ${r.config.intrinsicLengthUm?'PIN':'PN'}${r.accuracyPassed===false?' · 精度检查未通过':''}`;
   $('#equilibrium-summary').innerHTML=`<table class="data-table"><thead><tr><th>量</th><th>数值解</th><th>耗尽近似</th></tr></thead><tbody><tr><td>内建电势 (V)</td><td>${r.builtInV.toFixed(5)}</td><td>${o.builtInV.toFixed(5)}</td></tr><tr><td>峰值电场 (V/cm)</td><td>${r.peakFieldVcm.toExponential(3)}</td><td>${o.peakFieldVcm.toExponential(3)}</td></tr></tbody></table><p class="view-note">${m.requestedNm} → ${m.returnedNm} nm：电势差 ${(1000*m.potentialDifferenceV).toFixed(3)} mV；峰值电场变化 ${(100*m.peakFieldRelativeDifference).toFixed(2)}%。${m.withinTolerance?'网格检查通过':'网格需加密'}。</p>${r.warnings.map(w=>`<p class="error-message">${esc(w)}</p>`).join('')}<details class="physics-conditions"><summary>模型参数与边界条件</summary><p>独立的一维体硅同质结；完全电离、Boltzmann 统计、理想欧姆端部、零偏压。i 区为本征硅。当前三维工艺未映射到本算例。</p><p>Eg = ${r.parameters.gapEv} eV；εr = ${r.parameters.relativePermittivity}；Nc = ${r.parameters.ncCm3.toExponential(2)}、Nv = ${r.parameters.nvCm3.toExponential(2)} cm⁻³；ni = ${r.parameters.niCm3.toExponential(3)} cm⁻³，由带隙与态密度一致推导。能量参考 EF = 0。</p><p>解析式采用耗尽近似，数值解保留移动电荷，两者不要求完全相等。未包含异质界面、钉扎、复合、光生或简并统计。</p></details>`;
-  drawEquilibrium($('#equilibrium-plot'),r,$('#equilibrium-quantity').value);$('#export-equilibrium').disabled=false;
+  if(r.mapping){
+    const note=$('#equilibrium-summary .physics-conditions p');note.textContent=`由步骤 ${r.mapping.through+1} 的硅几何映射；${r.mapping.axis.toUpperCase()} 路径 ${r.mapping.path.startUm} → ${r.mapping.path.endUm} μm；给定分段掺杂，完全电离、无补偿、300 K、Boltzmann 统计。起点：${r.mapping.boundaries.start.assumption}。终点：${r.mapping.boundaries.end.assumption}。工艺未预测掺杂或真实接触势垒。`;
+  }
+  if(r.validation){
+    $('#equilibrium-summary').insertAdjacentHTML('beforeend',`<details class="physics-conditions"><summary>分项验证 · 实验标定未检查</summary><div class="table-scroll"><table class="data-table"><thead><tr><th>检查</th><th>数值</th><th>限值</th><th>状态</th></tr></thead><tbody>${[...r.validation.algorithm,...r.validation.numerical].map(c=>`<tr><td>${esc(c.quantity)}</td><td>${c.value.toExponential(3)}</td><td>${c.limit.toExponential(2)}</td><td>${c.state==='passed'?'通过':'未通过'}</td></tr>`).join('')}</tbody></table></div><p>文献对照：未检查；实验标定：未检查。当前阈值属于此模型的工程验收条件。</p></details>`);
+  }
+  if(r.depletion){const d=r.depletion.thresholds[1];$('#equilibrium-summary').insertAdjacentHTML('beforeend',`<details class="physics-conditions"><summary>耗尽区操作定义与阈值敏感性</summary><p>${esc(r.depletion.definition)}</p><table class="data-table"><thead><tr><th>多数载流子阈值</th><th>p 侧宽度 (μm)</th><th>n 侧宽度 (μm)</th><th>含 i 区跨度 (μm)</th></tr></thead><tbody>${r.depletion.thresholds.map(t=>`<tr><td>${t.fraction}</td><td>${t.pWidthUm?.toFixed(4)??'未识别'}</td><td>${t.nWidthUm?.toFixed(4)??'未识别'}</td><td>${t.spanUm?.toFixed(4)??'未识别'}</td></tr>`).join('')}</tbody></table>${d.pBoundary.touchesBoundary||d.nBoundary.touchesBoundary?'<p class="error-message">数值判据触及计算域端部，不能当作远端中性耗尽宽度。</p>':''}</details>`);}
+  drawEquilibrium($('#equilibrium-plot'),r,$('#equilibrium-quantity').value);$('#export-equilibrium').disabled=false;$('#export-equilibrium-meta').disabled=false;
 }
 function render(){
   const start=performance.now();state=simulate(project,through);result=analyze(state,project.materials,project.interfaceSelections);const elapsed=performance.now()-start;
@@ -192,6 +206,7 @@ function render(){
   $('#model-label').textContent=$('[data-view][aria-selected="true"]').dataset.view==='atomic'?'原子晶胞 · Å':`局部区域 · ${project.sizeUm} × ${project.sizeUm} μm`;$('#elapsed').textContent=`计算 ${elapsed.toFixed(0)} ms`;
   $('#simulation-status').textContent=state.stoppedAt!==null?`步骤 ${state.stoppedAt+1} 停止 · 查看诊断`:'几何计算完成';
   renderCards();renderParams();renderResults();renderViews();
+  deviceUI?.updateGeometry();
 }
 function renderLibrary(){
   const search=$('#process-search').value.toLowerCase(),groups={};
@@ -241,6 +256,7 @@ function activateProject(next,file=''){
   projectFile=file;savedSnapshot=JSON.stringify(project);$('#template').value=project.template||'blank';
   invalidateEquilibrium();renderEquilibriumConfig();persist();render();
   atomicUI?.updateProject();
+  deviceResult=null;deviceUI?.updateProject();$('#equilibrium-source').value=project.devicePhysics?'device':'manual';updateEquilibriumSource();
   if(viewer){viewer.wafer=false;$('#wafer-view').setAttribute('aria-pressed','false');viewer.setView('perspective');renderViews();}
 }
 $('#template').innerHTML=options(templateNames,project.template);
@@ -328,22 +344,35 @@ $('#equilibrium-form').onsubmit=async e=>{
     const config=readEquilibriumConfig();invalidateEquilibrium();
     const next=structuredClone(project);next.equilibrium=config;if(!applyChange(next))return;
     const generation=equilibriumGeneration;equilibriumRunning=true;$('#solve-equilibrium').disabled=true;$('#equilibrium-status').textContent='正在求解并检查物理网格…';
-    try{const r=await window.virtualFabPhysics.equilibrium(config);if(generation===equilibriumGeneration){equilibriumResult=r;$('#equilibrium-settings').open=false;renderEquilibriumResult();}}
+    try{const r=assessEquilibrium(await window.virtualFabPhysics.equilibrium(config),config);if(generation===equilibriumGeneration){manualResult=r;if($('#equilibrium-source').value==='manual')equilibriumResult=r;$('#equilibrium-settings').open=false;renderEquilibriumResult();}}
     catch(error){if(generation===equilibriumGeneration)$('#equilibrium-status').textContent='求解失败：'+error.message;}
     finally{equilibriumRunning=false;$('#solve-equilibrium').disabled=false;}
   }catch(error){$('#equilibrium-status').textContent=error.message;}
 };
 $('#equilibrium-quantity').onchange=renderEquilibriumResult;
+function updateEquilibriumSource(){
+  const device=$('#equilibrium-source').value==='device';$('#device-physics-panel').hidden=!device;$('#equilibrium-settings').hidden=device;$('#solve-equilibrium').hidden=device;
+  equilibriumResult=device?deviceResult:manualResult;renderEquilibriumResult();if(device)deviceUI?.preview();
+}
+$('#equilibrium-source').onchange=updateEquilibriumSource;
+$('#export-equilibrium-meta').onclick=()=>{if(equilibriumResult)download('si-equilibrium-result.json',JSON.stringify(equilibriumResult,null,2)+'\n');};
 $('#export-equilibrium').onclick=()=>{
   if(!equilibriumResult)return;
   const r=equilibriumResult,fields=$('#equilibrium-quantity').value==='field';
-  const columns=fields?['xUm','fieldVcm']:['xUm','potentialV','ecEv','evEv','efEv','electronCm3','holeCm3','netDopingCm3'];
-  download(fields?'si-equilibrium-field.csv':'si-equilibrium-nodes.csv',[columns.join(','),...(fields?r.fields:r.rows).map(row=>columns.map(k=>row[k]).join(','))].join('\n')+'\n','text/csv');
+  let rows=fields?r.fields:r.rows,columns=fields?['xUm','fieldVcm']:['xUm','potentialV','ecEv','evEv','efEv','electronCm3','holeCm3','netDopingCm3'];
+  if(r.mapping){
+    const m=r.mapping;rows=rows.map(row=>({...row,sUm:row.xUm,axisCoordinateUm:m.path.startUm+m.direction*row.xUm,fieldAlongPathVcm:row.fieldVcm,fieldAlongAxisVcm:m.direction*row.fieldVcm}));
+    columns=fields?['sUm','axisCoordinateUm','fieldAlongPathVcm','fieldAlongAxisVcm']:['sUm','axisCoordinateUm',...columns.slice(1)];
+  }
+  const metadata={schemaVersion:1,columns,coordinate:r.mapping?`s 沿 ${r.mapping.axis.toUpperCase()} 路径；轴向场 = 路径方向 × 沿路径场`:'独立算例 x',units:{xUm:'μm',sUm:'μm',axisCoordinateUm:'μm',potentialV:'V',ecEv:'eV',evEv:'eV',efEv:'eV',electronCm3:'cm⁻³',holeCm3:'cm⁻³',netDopingCm3:'cm⁻³',fieldVcm:'V/cm',fieldAlongPathVcm:'V/cm',fieldAlongAxisVcm:'V/cm'},energyReference:'EF = 0，内部参考，非真空绝对能量',model:r.model,solverVersion:r.solverVersion,mathLibraries:r.mathLibraries,config:r.config,parameters:r.parameters,mapping:r.mapping||null,task:r.task||null,history:!!r.history,accuracyPassed:r.accuracyPassed,validation:r.validation,depletion:r.depletion,warnings:r.warnings};
+  download(fields?'si-equilibrium-field.csv':'si-equilibrium-nodes.csv',[columns.join(','),...rows.map(row=>columns.map(k=>row[k]).join(','))].join('\n')+'\n','text/csv',metadata);
 };
 try{viewer=new StructureViewer($('#three-view'));}catch(error){$('#three-view').innerHTML='<p class="empty-message">WebGL 不可用。剖面、工艺计算与诊断仍可使用。</p>';toast('三维视窗初始化失败：'+error.message);}
 new ResizeObserver(revealCurrentStep).observe($('#recipe-cards'));
 renderLibrary();render();renderEquilibriumConfig();updateCurve();if(restoreError)toast(restoreError);
 atomicUI=new AtomicUI({getProject:()=>project,setConfig:config=>{project.dft=config;persist();},toast});
+deviceUI=new DevicePhysicsUI({getProject:()=>project,getThrough:()=>through,setConfig:config=>{const next={...project,devicePhysics:config};validateProject(next);project=next;persist();},showResult:r=>{deviceResult=r;if($('#equilibrium-source').value==='device'){equilibriumResult=r;renderEquilibriumResult();}},newBenchmark:pin=>confirm('新建硅物理基准','将新建体硅几何与明确给定的理想掺杂区域。浓度为示例输入，不代表工艺预测或实测。',async()=>{await window.virtualFabFiles?.reset();activateProject(siliconBenchmark(pin));},hasUnsavedChanges()),toast});
+$('#equilibrium-source').value=project.devicePhysics?'device':'manual';updateEquilibriumSource();
 new ResizeObserver(()=>drawSlice($('#slice-plot'),state,project.materials,sliceIndex)).observe($('#slice-plot'));
 new ResizeObserver(()=>{if(curveRows.length)drawCurve($('#curve-plot'),curveRows);}).observe($('#curve-plot'));
 new ResizeObserver(()=>{if(equilibriumResult)drawEquilibrium($('#equilibrium-plot'),equilibriumResult,$('#equilibrium-quantity').value);}).observe($('#equilibrium-plot'));

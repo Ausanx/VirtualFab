@@ -59,8 +59,25 @@
         <div class="analysis-modes" role="tablist" aria-label="能带计算"><button role="tab" data-band-mode="materials" aria-selected="true">材料与界面</button><button role="tab" data-band-mode="equilibrium" aria-selected="false">PN/PIN 平衡</button></div>
         <div id="material-bands-panel"><div class="analysis-title"><h2>孤立材料带边</h2><span>真空参考 · eV</span></div><div id="band-diagram"></div><div id="interface-results"></div></div>
         <div id="equilibrium-panel" hidden>
-          <div class="analysis-title"><h2>一维硅 PN/PIN</h2><span class="badge">独立算例 · 300 K · 零偏压</span></div>
-          <details id="equilibrium-settings" open><summary>模型参数</summary><form id="equilibrium-form" class="physics-form">
+          <div class="analysis-title"><h2>一维硅 PN/PIN</h2><span class="badge">300 K · 零偏压</span></div>
+          <label class="physics-source">模型来源<select id="equilibrium-source"><option value="manual">独立参数算例</option><option value="device">当前工艺结构</option></select></label>
+          <section id="device-physics-panel" hidden>
+            <p id="device-binding" class="view-note" role="status"></p>
+            <details id="device-model-settings" open><summary>工艺区域与模型设置</summary>
+            <div class="physics-actions"><button id="device-bind">选择当前工艺（清空区域）</button><button id="device-new-pn">新建硅 PN 基准</button><button id="device-new-pin">新建硅 PIN 基准</button></div>
+            <details id="device-regions-settings" open><summary>区域与给定掺杂</summary><p class="view-note">从连通硅区域中划定空间范围。空白浓度表示未知；零需要明确输入。掺杂是独立物理输入，当前工艺不预测注入或扩散。</p><div class="physics-actions"><label>几何区域<select id="device-region-choice" aria-label="选择物理几何区域"></select></label><button id="device-add-region">添加物理区域</button></div><div id="device-regions"></div></details>
+            <details id="device-path-settings" open><summary>端子、直线路径与网格 · 坐标 μm</summary><form id="device-path-form" class="physics-form">
+              <label>路径轴<select name="axis"><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></label><label>物理网格 (nm)<input name="meshNm" type="number" min="2" max="100" step="any" required></label>
+              <label>X 坐标<input name="x" type="number" step="any" required></label><label>Y 坐标<input name="y" type="number" step="any" required></label><label>Z 坐标<input name="z" type="number" step="any" required></label><span class="view-note">轴向坐标由起点/终点覆盖；其余两项指定路径位置。</span>
+              <label>起点坐标<input name="startUm" type="number" step="any" required></label><label>终点坐标<input name="endUm" type="number" step="any" required></label><label>起点边界<select name="start" aria-label="起点边界"></select></label><label>终点边界<select name="end" aria-label="终点边界"></select></label>
+              <button type="submit">应用路径并预览</button>
+            </form></details>
+            <div id="device-preview" aria-live="polite"></div>
+            </details>
+            <div class="physics-actions"><button id="device-solve" class="primary">求解当前结构</button><button id="device-cancel" disabled>取消任务</button></div>
+            <label class="physics-source">本机任务历史<select id="device-jobs" aria-label="平衡任务历史"></select></label><div id="device-status" role="status"></div><p id="device-result-binding" class="view-note"></p>
+          </section>
+          <details id="equilibrium-settings" open><summary>独立模型参数</summary><form id="equilibrium-form" class="physics-form">
             <label><span>受主 N<sub>A</sub> (cm⁻³)</span><input name="acceptorCm3" type="number" min="1e14" max="1e18" step="any" required></label>
             <label><span>施主 N<sub>D</sub> (cm⁻³)</span><input name="donorCm3" type="number" min="1e14" max="1e18" step="any" required></label>
             <label>p 区长度 (μm)<input name="pLengthUm" type="number" min="0.1" max="20" step="any" required></label>
@@ -68,7 +85,7 @@
             <label>本征硅 i 区长度 (μm)<input name="intrinsicLengthUm" type="number" min="0" max="20" step="any" required></label>
             <label>初始物理网格 (nm)<input name="meshNm" type="number" min="2" max="100" step="any" required></label>
           </form></details>
-          <div class="physics-actions"><button id="solve-equilibrium" class="primary" type="submit" form="equilibrium-form">求解平衡</button><button id="export-equilibrium" type="button" disabled>导出 CSV</button><label>结果<select id="equilibrium-quantity"><option value="bands">平衡能带</option><option value="carriers">载流子分布</option><option value="field">电场</option></select></label></div>
+          <div class="physics-actions"><button id="solve-equilibrium" class="primary" type="submit" form="equilibrium-form">求解平衡</button><button id="export-equilibrium" type="button" disabled>导出 CSV</button><button id="export-equilibrium-meta" type="button" disabled>导出结果档案</button><label>结果<select id="equilibrium-quantity"><option value="bands">平衡能带</option><option value="potential">电势</option><option value="carriers">载流子分布</option><option value="field">电场</option></select></label></div>
           <div id="equilibrium-status" role="status">尚未求解</div><div id="equilibrium-summary"></div><div id="equilibrium-plot"></div>
         </div>
       </div>
