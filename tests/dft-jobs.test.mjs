@@ -8,6 +8,9 @@ import { createHash } from 'node:crypto';
 import { DftJobs } from '../dft/jobs.mjs';
 import { atomicTemplate } from '../src/atomic.js';
 
+// These checks reach Windows-to-WSL path conversion even with a stub worker.
+const windowsOnly={skip:process.platform!=='win32'};
+
 async function fixture(){
   const root=await mkdtemp(path.join(tmpdir(),'virtualfab-jobs-'));
   const children=[];
@@ -15,7 +18,7 @@ async function fixture(){
   const jobs=new DftJobs({root,launch,invoke:async()=>({ready:true,engine:'test orchestration only'})});
   await jobs.init();return {root,jobs,children};
 }
-test('input snapshots are immutable and failed processes cannot become successful results',async()=>{
+test('input snapshots are immutable and failed processes cannot become successful results',windowsOnly,async()=>{
   const {root,jobs,children}=await fixture(),config=atomicTemplate();
   const job=await jobs.start(config);config.settings.kDensity=10;
   const saved=JSON.parse(await readFile(path.join(root,job.id,'snapshot.json'),'utf8'));
@@ -26,7 +29,7 @@ test('input snapshots are immutable and failed processes cannot become successfu
   await writeFile(path.join(root,job.id,'snapshot.json'),'{}');
   await assert.rejects(()=>jobs.resume(job.id),/快照/);
 });
-test('cancel keeps evidence and relaunch recovers interrupted tasks',async()=>{
+test('cancel keeps evidence and relaunch recovers interrupted tasks',windowsOnly,async()=>{
   const {root,jobs,children}=await fixture(),job=await jobs.start(atomicTemplate());
   await jobs.cancel(job.id);assert.equal((await jobs.inspect(job.id)).status.state,'canceling');
   children[0].emit('close',1);await jobs.active?.done;
@@ -52,7 +55,7 @@ async function completeFixture(f){
   const done=f.jobs.active.done;f.children[0].emit('close',0);await done;
   return {job,directory};
 }
-test('completed results reject modified evidence and result files',async()=>{
+test('completed results reject modified evidence and result files',windowsOnly,async()=>{
   const f=await fixture(),{job,directory}=await completeFixture(f);
   assert.equal((await f.jobs.inspect(job.id)).status.state,'completed');
   const file=path.join(directory,'result.json'),original=await readFile(file,'utf8');
@@ -62,13 +65,13 @@ test('completed results reject modified evidence and result files',async()=>{
   await assert.rejects(()=>f.jobs.inspect(job.id),/证据|校验|损坏/);
   const list=await f.jobs.list([job.id]);assert.equal(list[0].status.state,'corrupted');
 });
-test('manifest cannot mislabel a valid snapshot',async()=>{
+test('manifest cannot mislabel a valid snapshot',windowsOnly,async()=>{
   const f=await fixture(),job=await f.jobs.start(atomicTemplate()),file=path.join(f.root,job.id,'manifest.json');
   const manifest=JSON.parse(await readFile(file,'utf8'));manifest.config.settings.kDensity=10;await writeFile(file,JSON.stringify(manifest));
   await assert.rejects(()=>f.jobs.inspect(job.id),/快照/);
   f.children[0].emit('close',1);await f.jobs.active?.done;
 });
-test('cancel racing with process exit leaves a terminal state',async()=>{
+test('cancel racing with process exit leaves a terminal state',windowsOnly,async()=>{
   const f=await fixture(),job=await f.jobs.start(atomicTemplate()),done=f.jobs.active.done;
   const cancel=f.jobs.cancel(job.id);f.children[0].emit('close',1);await cancel;await done;
   assert.equal((await f.jobs.inspect(job.id)).status.state,'canceled');
@@ -87,7 +90,7 @@ test('one corrupt task status cannot prevent application startup',async()=>{
   const recovered=new DftJobs({root:f.root});await recovered.init();
   assert.equal((await recovered.list([id]))[0].status.state,'corrupted');
 });
-test('missing or malformed live status is canceled and recoverable without overwriting evidence',async()=>{
+test('missing or malformed live status is canceled and recoverable without overwriting evidence',windowsOnly,async()=>{
   for(const content of ['null','{}','{"state":"unknown"}','{broken',null]){
     const f=await fixture(),{job,directory}=await completeFixture(f);
     await mkdir(path.join(directory,'attempts/3/base'),{recursive:true});

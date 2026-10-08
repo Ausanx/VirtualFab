@@ -119,7 +119,7 @@ npm test
 npm run check
 ```
 
-GitHub Actions runs these checks on Windows and Linux. Desktop interaction and physical calculations have additional local checks:
+GitHub Actions runs these checks on Windows and Linux; Windows-to-WSL and PowerShell checks run on Windows. Desktop interaction and physical calculations have additional local checks:
 
 ```powershell
 npm run test:browser

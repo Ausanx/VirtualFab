@@ -119,7 +119,7 @@ npm test
 npm run check
 ```
 
-GitHub Actions 在 Windows 与 Linux 执行上述检查。桌面交互和真实物理计算另有本地检查：
+GitHub Actions 在 Windows 与 Linux 执行上述检查，Windows→WSL 路径与 PowerShell 专用检查在 Windows 执行。桌面交互和真实物理计算另有本地检查：
 
 ```powershell
 npm run test:browser
