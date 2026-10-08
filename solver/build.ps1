@@ -8,11 +8,16 @@ $artifactPath = Join-Path $repoPath 'artifacts'
 New-Item -ItemType Directory -Force -Path $artifactPath | Out-Null
 
 function Get-PinnedArchive($url, $target, $sha256) {
-    if (-not (Test-Path -LiteralPath $target)) {
-        Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $target
-    }
-    if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -ne $sha256) {
-        throw "Archive checksum mismatch: $target"
+    if ((Test-Path -LiteralPath $target) -and (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -eq $sha256) { return }
+    $temporary = "$target.$([guid]::NewGuid()).partial"
+    try {
+        Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $temporary
+        if ((Get-FileHash -LiteralPath $temporary -Algorithm SHA256).Hash -ne $sha256) {
+            throw "Archive checksum mismatch: $target"
+        }
+        Move-Item -LiteralPath $temporary -Destination $target -Force
+    } finally {
+        if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary }
     }
 }
 
@@ -31,11 +36,11 @@ Expand-Archive -LiteralPath $umfArchive -DestinationPath $umfDirectory -Force
 $licenseDirectory = Join-Path $artifactPath 'solver-licenses'
 New-Item -ItemType Directory -Force -Path $licenseDirectory | Out-Null
 foreach ($entry in @(
-    @('https://raw.githubusercontent.com/OpenMathLib/OpenBLAS/v0.3.31/LICENSE', 'OpenBLAS-LICENSE.txt'),
-    @('https://raw.githubusercontent.com/devsim/devsim/v2.11.0.rc5/NOTICE', 'DEVSIM-NOTICE.txt')
+    @('https://raw.githubusercontent.com/OpenMathLib/OpenBLAS/v0.3.31/LICENSE', 'OpenBLAS-LICENSE.txt', '190B5A9C8D9723FE958AD33916BD7346D96FAB3C5EA90832BB02D854F620FCFF'),
+    @('https://raw.githubusercontent.com/devsim/devsim/v2.11.0.rc5/NOTICE', 'DEVSIM-NOTICE.txt', '30D873CFDF37B0C2FBFABA9454F39B916C2E23685329E219D5BA7280EF95D4FD')
 )) {
     $target = Join-Path $licenseDirectory $entry[1]
-    if (-not (Test-Path -LiteralPath $target)) { Invoke-WebRequest -UseBasicParsing -Uri $entry[0] -OutFile $target }
+    Get-PinnedArchive $entry[0] $target $entry[2]
 }
 Copy-Item -LiteralPath (Join-Path $umfDirectory "umfpack_lgpl-$umfCommit\COPYING") -Destination (Join-Path $licenseDirectory 'UMFPACK-COPYING.txt')
 Copy-Item -LiteralPath $umfArchive -Destination (Join-Path $licenseDirectory 'UMFPACK-source.zip')

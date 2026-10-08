@@ -70,15 +70,15 @@ def solve(c, spacing_nm, suffix):
         ds.set_parameter(**args, name=name, value=value)
     ds.node_solution(**args, name="NetDoping")
     positions = ds.get_node_model_values(**args, name="x")
-    doping = []
-    for x in positions:
-        if math.isclose(x, lp, abs_tol=1e-14):
-            value = -.5 * c["acceptorCm3"] if li else .5 * (c["donorCm3"] - c["acceptorCm3"])
-        elif li and math.isclose(x, lp + li, abs_tol=1e-14):
-            value = .5 * c["donorCm3"]
-        else:
-            value = -c["acceptorCm3"] if x < lp else c["donorCm3"] if x > lp + li else 0
-        doping.append(value)
+    ordered = sorted(enumerate(positions), key=lambda item: item[1])
+    doping = [0.0] * len(positions)
+    # Integrate the step profile over each actual finite-volume cell, including unequal junction spacings.
+    for j, (node, x) in enumerate(ordered):
+        left = (ordered[j - 1][1] + x) / 2 if j else 0
+        right = (x + ordered[j + 1][1]) / 2 if j < len(ordered) - 1 else end
+        p_width = max(0, min(right, lp) - left)
+        n_width = max(0, right - max(left, lp + li))
+        doping[node] = (-c["acceptorCm3"] * p_width + c["donorCm3"] * n_width) / (right - left)
     ds.set_node_values(**args, name="NetDoping", values=doping)
     CreateSolution(device, region, "Potential")
     left = -VT * math.asinh(c["acceptorCm3"] / (2 * NI))

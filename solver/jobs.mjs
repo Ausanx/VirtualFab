@@ -52,7 +52,7 @@ export class PhysicsJobs{
     let result=null;
     if(status.state==='completed'){
       const resultContent=await readFile(path.join(directory,'result.json'),'utf8');if(hash(resultContent)!==status.resultHash)throw Error('任务结果校验失败。');
-      result=JSON.parse(resultContent);assessEquilibrium(result,snapshot.mapping.config);
+      result=assessEquilibrium(JSON.parse(resultContent),snapshot.mapping.config);
       if(JSON.stringify(result.mapping)!==JSON.stringify(snapshot.mapping))throw Error('结果映射不一致。');
     }
     return {manifest,status,snapshot,result};

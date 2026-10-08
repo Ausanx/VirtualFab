@@ -46,10 +46,14 @@ export function assessEquilibrium(r,config=r?.config){
   validateEquilibrium(config);
   if(r?.schemaVersion!==1||!r.converged||JSON.stringify(r.config)!==JSON.stringify(config)||!Array.isArray(r.rows)||r.rows.length<3||r.rows.length>15000||!Array.isArray(r.fields)||r.fields.length!==r.rows.length-1)throw Error('平衡结果不完整或与输入不符。');
   const q=1.602176634e-19,eps=11.7*8.8541878128e-14,vt=8.617333262145e-5*300,ni=Math.sqrt(2.8e19*1.04e19)*Math.exp(-1.12/(2*vt)),end=config.pLengthUm+config.intrinsicLengthUm+config.nLengthUm;
-  let residual=0,carrierError=0,bandError=0,densityError=0;
+  let residual=0,carrierError=0,bandError=0,densityError=0,dopingError=0;
   for(let j=0;j<r.rows.length;j++){
     const b=r.rows[j];
     if(!['xUm','potentialV','ecEv','evEv','efEv','electronCm3','holeCm3','netDopingCm3'].every(k=>typeof b[k]==='number'&&Number.isFinite(b[k]))||b.electronCm3<=0||b.holeCm3<=0||j>0&&b.xUm<=r.rows[j-1].xUm)throw Error('平衡节点包含无效数据。');
+    const left=j?(r.rows[j-1].xUm+b.xUm)/2:0,right=j<r.rows.length-1?(b.xUm+r.rows[j+1].xUm)/2:end;
+    const pWidth=Math.max(0,Math.min(right,config.pLengthUm)-left),nWidth=Math.max(0,right-Math.max(left,config.pLengthUm+config.intrinsicLengthUm));
+    const expectedDoping=(-config.acceptorCm3*pWidth+config.donorCm3*nWidth)/(right-left);
+    dopingError=Math.max(dopingError,Math.abs(b.netDopingCm3-expectedDoping)/Math.max(config.acceptorCm3,config.donorCm3));
     carrierError=Math.max(carrierError,Math.abs(b.electronCm3*b.holeCm3/ni**2-1));
     bandError=Math.max(bandError,Math.abs(b.efEv),Math.abs(b.ecEv-b.evEv-1.12));
     densityError=Math.max(densityError,Math.abs(2.8e19*Math.exp(-b.ecEv/vt)/b.electronCm3-1),Math.abs(1.04e19*Math.exp(b.evEv/vt)/b.holeCm3-1));
@@ -61,9 +65,13 @@ export function assessEquilibrium(r,config=r?.config){
   }
   if(Math.abs(r.rows[0].xUm)>1e-8||Math.abs(r.rows.at(-1).xUm-end)>1e-8||!r.fields.every((f,j)=>Number.isFinite(f.xUm)&&Number.isFinite(f.fieldVcm)&&Math.abs(f.xUm-(r.rows[j].xUm+r.rows[j+1].xUm)/2)<1e-8)||!r.meshCheck||!Number.isFinite(r.meshCheck.potentialDifferenceV)||!Number.isFinite(r.meshCheck.peakFieldRelativeDifference))throw Error('平衡结果坐标或精度数据不完整。');
   if(!Array.isArray(r.warnings)||!r.warnings.every(w=>typeof w==='string')||!Number.isFinite(r.builtInV)||!Number.isFinite(r.peakFieldVcm)||!r.oracle||!r.parameters||!Number.isFinite(r.oracle.builtInV)||!Number.isFinite(r.oracle.peakFieldVcm)||r.parameters.gapEv!==1.12||r.parameters.ncCm3!==2.8e19||r.parameters.nvCm3!==1.04e19||r.parameters.relativePermittivity!==11.7||Math.abs(r.parameters.niCm3/ni-1)>1e-8||!Number.isFinite(r.parameters.niCm3)||r.meshCheck.potentialDifferenceV<0||r.meshCheck.peakFieldRelativeDifference<0)throw Error('平衡结果摘要或模型参数不完整。');
+  if(!number(r.oracle.pDepletionUm,0,Infinity)||!number(r.oracle.nDepletionUm,0,Infinity))throw Error('平衡结果边界适用性数据不完整。');
   const builtinError=Math.abs(r.builtInV-vt*Math.log(config.acceptorCm3*config.donorCm3/ni**2));
   const check=(quantity,value,limit)=>({quantity,value,limit,state:value<=limit?'passed':'failed'});
   const validation={algorithm:[check('np/ni²',carrierError,1e-10),check('能带 / 态密度载流子关系',densityError,1e-10),check('EF 平直 / 恒定带隙 (eV)',bandError,1e-10),check('内建电势解析差 (V)',builtinError,1e-8)],numerical:[check('归一化 Poisson 残差',residual,1e-6),check('网格减半电势差 (V)',r.meshCheck.potentialDifferenceV,.002),check('网格减半峰值场相对差',r.meshCheck.peakFieldRelativeDifference,.02)],literature:{state:'unchecked'},experiment:{state:'unchecked'}};
+  validation.algorithm.push(check('控制体积掺杂相对误差',dopingError,1e-10));
+  const pDepletionFraction=r.oracle.pDepletionUm/config.pLengthUm,nDepletionFraction=r.oracle.nDepletionUm/config.nLengthUm;
+  validation.boundary={state:pDepletionFraction<.8&&nDepletionFraction<.8?'passed':'failed',method:'耗尽近似远端中性条件筛查',pDepletionFraction,nDepletionFraction,limit:.8,note:'两侧耗尽近似宽度须分别小于该侧长度的 80%；这是端部距离筛查，不代表真实接触势垒或实验边界已验证。'};
   const fractionBoundary=(rows,key,doping,fraction,side)=>{
     if(side==='p'&&rows[0][key]<=doping*fraction)return {xUm:rows[0].xUm,touchesBoundary:true};
     if(side==='n'&&rows.at(-1)[key]<=doping*fraction)return {xUm:rows.at(-1).xUm,touchesBoundary:true};
@@ -78,5 +86,5 @@ export function assessEquilibrium(r,config=r?.config){
     const p=fractionBoundary(r.rows.filter(row=>row.xUm<=lp+1e-9),'holeCm3',config.acceptorCm3,fraction,'p'),n=fractionBoundary(r.rows.filter(row=>row.xUm>=lp+li-1e-9),'electronCm3',config.donorCm3,fraction,'n');
     return {fraction,pBoundary:p,nBoundary:n,pWidthUm:p.xUm===null?null:lp-p.xUm,nWidthUm:n.xUm===null?null:n.xUm-lp-li,spanUm:p.xUm===null||n.xUm===null?null:n.xUm-p.xUm};
   })};
-  return {...r,validation,depletion,accuracyPassed:[...validation.algorithm,...validation.numerical].every(c=>c.state==='passed')};
+  return {...r,validation,depletion,accuracyPassed:validation.boundary.state==='passed'&&[...validation.algorithm,...validation.numerical].every(c=>c.state==='passed')};
 }

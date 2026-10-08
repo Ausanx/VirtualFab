@@ -1,5 +1,17 @@
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1')
+function Get-PinnedFile($url, $target, $sha256, $maxSeconds) {
+    if ((Test-Path -LiteralPath $target) -and (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -eq $sha256) { return }
+    $temporary = "$target.$([guid]::NewGuid()).partial"
+    try {
+        & curl.exe -fL --retry 2 --max-time $maxSeconds -o $temporary $url
+        if ($LASTEXITCODE -ne 0) { throw "Download failed: $url" }
+        if ((Get-FileHash -LiteralPath $temporary -Algorithm SHA256).Hash -ne $sha256) { throw "Download checksum mismatch: $target" }
+        Move-Item -LiteralPath $temporary -Destination $target -Force
+    } finally {
+        if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary }
+    }
+}
 $setupCache = Join-Path $PSScriptRoot '..\artifacts\dft-setup'
 $qeInstall = Join-Path $env:LOCALAPPDATA 'VirtualFab-QE'
 New-Item -ItemType Directory -Force -Path $setupCache | Out-Null
@@ -7,11 +19,7 @@ $distributions = (& wsl --list --quiet) -replace "`0", ''
 if ($LASTEXITCODE -ne 0) { throw 'Install WSL2 first: wsl --install --no-distribution' }
 if ($distributions -notcontains 'VirtualFab-QE') {
     $rootfs = Join-Path $setupCache 'ubuntu-base.tar.gz'
-    if (-not (Test-Path -LiteralPath $rootfs)) {
-        & curl.exe -fL --retry 2 --max-time 600 -o $rootfs 'https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.5-base-amd64.tar.gz'
-        if ($LASTEXITCODE -ne 0) { throw 'Ubuntu download failed' }
-    }
-    if ((Get-FileHash -LiteralPath $rootfs -Algorithm SHA256).Hash -ne 'E77B6F10C2590CEF872B33EE9F635A0E3FD1F57FB074C0E52B5C7F56147A0C86') { throw 'Ubuntu rootfs checksum mismatch' }
+    Get-PinnedFile 'https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.5-base-amd64.tar.gz' $rootfs 'E77B6F10C2590CEF872B33EE9F635A0E3FD1F57FB074C0E52B5C7F56147A0C86' 600
     & wsl --import VirtualFab-QE $qeInstall $rootfs --version 2
     if ($LASTEXITCODE -ne 0) { throw 'WSL import failed' }
 }
@@ -25,11 +33,7 @@ $pseudos = Get-Content (Join-Path $PSScriptRoot 'pseudos.json') -Raw | ConvertFr
 foreach ($element in $pseudos.PSObject.Properties) {
     $pseudo = $element.Value
     $cachedPseudo = Join-Path $setupCache "$($element.Name).UPF"
-    if (-not (Test-Path -LiteralPath $cachedPseudo)) {
-        & curl.exe -fL --retry 2 --max-time 300 -o $cachedPseudo $pseudo.url
-        if ($LASTEXITCODE -ne 0) { throw "Pseudopotential download failed: $($element.Name)" }
-    }
-    if ((Get-FileHash -LiteralPath $cachedPseudo -Algorithm SHA256).Hash -ne $pseudo.sha256) { throw "Pseudopotential checksum mismatch: $($element.Name)" }
+    Get-PinnedFile $pseudo.url $cachedPseudo $pseudo.sha256 300
     $linuxPseudo = (& wsl -d VirtualFab-QE -u root --exec wslpath -a -u (Resolve-Path $cachedPseudo).Path).Trim()
     & wsl -d VirtualFab-QE -u root --exec cp $linuxPseudo "/opt/virtualfab/pseudo/$($pseudo.file)"
     if ($LASTEXITCODE -ne 0) { throw 'Pseudopotential copy failed' }

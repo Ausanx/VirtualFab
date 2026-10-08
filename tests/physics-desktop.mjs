@@ -92,6 +92,14 @@ try{
   assert.equal(await page.locator('#equilibrium-form [name="nLengthUm"]').inputValue(),'2.5');
   await page.locator('#solve-equilibrium').click();await page.locator('#equilibrium-status').filter({hasText:'已收敛'}).waitFor({timeout:45000});
   assert.equal(await page.locator('#equilibrium-plot [data-series="fieldVcm"]').count(),1);
+  await page.locator('#equilibrium-settings').evaluate(element=>element.open=true);
+  for(const [name,value] of Object.entries({intrinsicLengthUm:'0',pLengthUm:'0.1',nLengthUm:'0.1',meshNm:'10'}))await page.locator(`#equilibrium-form [name="${name}"]`).fill(value);
+  await page.locator('#solve-equilibrium').click();await page.locator('#equilibrium-status').filter({hasText:'已收敛'}).waitFor({timeout:45000});
+  assert.match(await page.locator('#equilibrium-status').innerText(),/精度检查未通过/);
+  assert.match(await page.locator('#equilibrium-summary').innerText(),/边界适用性 · 未通过/);
+  assert.equal(await page.locator('#equilibrium-plot [data-series="fieldVcm"]').count(),1);
+  assert.ok(await page.locator('#export-equilibrium').isEnabled());
+  await page.screenshot({path:path.join(output,'short-contact-warning.png')});
   assert.deepEqual(errors,[]);assert.deepEqual(requests,[]);
   console.log(`Physics desktop ${packaged?'packaged':'development'} passed: condition gate, relative bands, metadata preservation, grid control, PN/PIN solve, carriers/field, both CSV exports, mobile layout, unsolved parameter save/open and no remote requests.`);
 }finally{await app?.close();}
